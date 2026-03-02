@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#000000",
+                        "accent": "#2563EB", 
+                        "background-light": "#ffffff",
+                        "surface": "#ffffff",
+                        "border-light": "#e5e7eb",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<title>Electica Swap Confirm - White Theme</title>
+</head>
+<body class="bg-white font-display text-slate-900 min-h-screen">
+<div class="relative flex h-auto min-h-screen w-full flex-col bg-white overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<div class="px-4 md:px-20 lg:px-40 flex flex-1 justify-center py-5">
+<div class="layout-content-container flex flex-col max-w-[960px] flex-1">
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 px-4 py-4 bg-white">
+<div class="flex items-center gap-3">
+<div class="size-8 text-black">
+<svg fill="currentColor" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M44 4H30.6666V17.3334H17.3334V30.6666H4V44H44V4Z"></path>
+</svg>
+</div>
+<h2 class="text-black text-2xl font-bold leading-tight tracking-tight">Electica</h2>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center justify-center rounded-full h-10 w-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="flex items-center justify-center rounded-full h-10 w-10 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[20px]">account_circle</span>
+</button>
+</div>
+</header>
+<div class="flex flex-wrap justify-between gap-3 px-4 pt-8 pb-4">
+<div class="flex min-w-72 flex-col gap-1">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-black text-3xl">swap_horiz</span>
+<h1 class="text-black text-3xl font-bold leading-tight tracking-tight">Swap Battery</h1>
+</div>
+<p class="text-slate-500 text-sm font-normal pl-1">Review and confirm your battery exchange details</p>
+</div>
+</div>
+<div class="p-4">
+<div class="flex flex-col @xl:flex-row rounded-xl overflow-hidden shadow-sm border border-slate-200 bg-white">
+<div class="w-full @xl:w-1/3 bg-slate-100 bg-center bg-no-repeat aspect-video @xl:aspect-square bg-cover grayscale-[20%]" data-alt="Modern electric vehicle charging station in a city" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCi04HmQ7tzBvQtGwufTsSXv8GaNyZSGyPMlEY0Si82xhc1COgiC2DeFEodm8c2h7KFUMERt5bnt_8ZIkDoJP8yMG6HRI2CsxYI4vLKFWenq3oClTLfCU5aDk9oEC_yD-3ZW7_cJ63mEcaXUuC5vCQtC_oREZVezVCVG9dj1tPloR-VJOMl0TWQrhvV-P7uZPAPml_F7IPRdrHAd6NrLFIDJS3nVheumZJt1o3MihcS5H1cXwie3PKWCWn4qwlr_LjGAsnFVj5NVCo");'>
+</div>
+<div class="flex w-full flex-col justify-center gap-3 p-8">
+<span class="text-slate-500 text-xs font-bold tracking-widest uppercase">Selected Station</span>
+<h3 class="text-black text-2xl font-bold leading-tight">Downtown Hub-04</h3>
+<div class="flex items-center gap-2 text-slate-600">
+<span class="material-symbols-outlined text-lg">location_on</span>
+<p class="text-base font-medium">123 Electric Ave, Metro City Business District</p>
+</div>
+<div class="mt-2 flex items-center gap-3">
+<span class="inline-flex items-center rounded-full bg-black px-3 py-1 text-xs font-bold text-white shadow-sm">
+                                    Active
+                                </span>
+<span class="text-slate-500 text-xs font-medium">• 0.4 miles away</span>
+</div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 pb-4">
+<div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+<h3 class="text-black text-xs font-bold uppercase tracking-widest mb-6 border-b border-slate-100 pb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">arrow_downward</span>
+                            Return Details
+                        </h3>
+<div class="space-y-5">
+<div class="flex justify-between items-center group">
+<p class="text-slate-500 text-sm font-medium">User ID</p>
+<p class="text-slate-900 text-sm font-bold font-mono bg-slate-50 border border-slate-100 px-3 py-1 rounded">USR-88291</p>
+</div>
+<div class="flex justify-between items-center group">
+<p class="text-slate-500 text-sm font-medium">Return Slot</p>
+<p class="text-slate-900 text-sm font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-slate-900">logout</span>
+                                    Slot B-12
+                                </p>
+</div>
+<div class="flex justify-between items-center group">
+<p class="text-slate-500 text-sm font-medium">Current Battery ID</p>
+<p class="text-slate-900 text-sm font-bold">BAT-77402-Q</p>
+</div>
+</div>
+</div>
+<div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+<h3 class="text-black text-xs font-bold uppercase tracking-widest mb-6 border-b border-slate-100 pb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">arrow_upward</span>
+                            New Battery Assignment
+                        </h3>
+<div class="space-y-5">
+<div class="flex justify-between items-center">
+<p class="text-slate-500 text-sm font-medium">New Battery ID</p>
+<p class="text-slate-900 text-sm font-bold">BAT-99021-X</p>
+</div>
+<div class="flex justify-between items-center">
+<p class="text-slate-500 text-sm font-medium">Battery Health</p>
+<div class="text-right">
+<p class="text-emerald-600 text-sm font-bold">98% (Excellent)</p>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<p class="text-slate-500 text-sm font-medium">Charge Level</p>
+<div class="flex items-center gap-3">
+<div class="w-20 h-2.5 bg-slate-100 border border-slate-200 rounded-full overflow-hidden">
+<div class="bg-emerald-500 h-full w-[100%]"></div>
+</div>
+<p class="text-slate-900 text-sm font-bold">100%</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="p-4 space-y-4">
+<div class="bg-slate-50 border border-slate-200 rounded-lg p-5 flex gap-4 items-start shadow-sm">
+<span class="material-symbols-outlined text-slate-900 mt-0.5">info</span>
+<p class="text-sm text-slate-600 leading-relaxed">
+                            Ensure your vehicle is parked within the designated yellow zone. The return slot <span class="font-bold text-black border-b-2 border-slate-200">B-12</span> will unlock automatically once you confirm.
+                        </p>
+</div>
+<button class="w-full flex items-center justify-center gap-3 bg-black hover:bg-slate-800 text-white font-bold text-lg py-4 px-6 rounded-xl transition-all shadow-md active:scale-[0.99] active:shadow-sm mt-4">
+<span class="material-symbols-outlined">check_circle</span>
+                        Confirm Swap &amp; Unlock Slot
+                    </button>
+<button class="w-full flex items-center justify-center gap-2 bg-transparent hover:bg-slate-50 text-slate-500 font-semibold py-3 px-6 rounded-xl transition-all border border-transparent hover:border-slate-200">
+                        Cancel Transaction
+                    </button>
+</div>
+<footer class="mt-auto p-8 text-center border-t border-slate-100">
+<p class="text-slate-400 text-xs leading-5">
+                        © 2024 Electica Energy Networks. All rights reserved.<br/>
+                        Transaction Reference: <span class="font-mono text-slate-500">TXN-492-9901-X2</span>
+</p>
+</footer>
+</div>
+</div>
+</div>
+</div>
+
+</body></html>

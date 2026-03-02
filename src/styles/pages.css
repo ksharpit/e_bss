@@ -1,0 +1,84 @@
+/* ============================================
+   Page Layouts (Electica Exact)
+   ============================================ */
+
+/* ─── 6-column Metric Grid ─── */
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-base);
+    margin-bottom: 2rem;
+}
+
+/* ─── 4-column KPI Grid ─── */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-lg);
+    margin-bottom: 2.5rem;
+}
+
+/* ─── Content + Sidebar ─── */
+.content-sidebar {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--space-lg);
+    margin-bottom: 2.5rem;
+}
+
+/* ─── Full Width ─── */
+.full-width-section {
+    margin-bottom: 2.5rem;
+}
+
+/* ─── Station Grid ─── */
+.station-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--space-lg);
+}
+
+/* ─── Detail Grid ─── */
+.detail-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--space-lg);
+    margin-bottom: 2.5rem;
+}
+
+/* ─── Revenue Grid ─── */
+.revenue-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: var(--space-lg);
+    margin-bottom: 2.5rem;
+}
+
+/* ─── Chart ─── */
+.chart-container {
+    position: relative;
+    width: 100%;
+}
+
+.chart-container canvas {
+    max-width: 100%;
+}
+
+/* ─── Responsive ─── */
+@media (min-width: 1400px) {
+    .metric-grid {
+        grid-template-columns: repeat(6, 1fr);
+    }
+}
+
+@media (max-width: 1024px) {
+    .metric-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .content-sidebar,
+    .detail-grid,
+    .revenue-grid {
+        grid-template-columns: 1fr;
+    }
+}

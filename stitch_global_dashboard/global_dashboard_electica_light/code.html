@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Global Dashboard - Unified Style</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        "electica-blue": "#0f62fe", 
+                        "electica-bg": "#ffffff",
+                        "electica-border": "#e0e0e0",
+                        "electica-text": "#161616",
+                        "electica-muted": "#6f6f6f",
+                        "success": "#198038",
+                        "warning": "#f1c21b",
+                        "danger": "#da1e28",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "sans": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        'card': '12px'
+                    },
+                    aspectRatio: {
+                        'desktop': '16/9'
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #ffffff;
+            color: #161616;
+        }
+        .metric-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            transition: all 0.2s ease;
+            aspect-ratio: 1 / 1;display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .metric-card:hover {
+            border-color: #0f62fe;
+            box-shadow: 0 4px 12px rgba(15, 98, 254, 0.1);
+        }
+        .sidebar-link {
+            transition: all 0.2s ease;
+            border-radius: 8px;
+            margin-bottom: 4px;
+        }
+        .sidebar-link:hover, .sidebar-link.active {
+            background-color: #edf5ff;
+            color: #0f62fe;
+        }
+        .sidebar-link.active .material-symbols-outlined {
+            color: #0f62fe;
+        }
+        .card-container {
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            background: white;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #e0e0e0;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #c1c1c1;
+        }.app-container {
+            max-width: 1920px;
+            margin: 0 auto;
+            min-height: 100vh;
+            display: flex;
+            background-color: #ffffff;
+        }
+    </style>
+</head>
+<body class="text-electica-text bg-white min-h-screen antialiased">
+<div class="app-container overflow-hidden">
+<aside class="w-64 bg-white border-r border-gray-100 flex-shrink-0 flex flex-col justify-between z-20 h-screen sticky top-0">
+<div class="flex flex-col h-full">
+<div class="h-20 flex items-center px-6">
+<div class="flex items-center gap-3">
+<div class="bg-electica-blue h-9 w-9 rounded-lg flex items-center justify-center text-white shadow-sm">
+<span class="material-symbols-outlined text-[22px]">bolt</span>
+</div>
+<span class="text-xl font-bold tracking-tight text-gray-900">Electica</span>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto py-6 px-4 space-y-1">
+<p class="px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4">Main Menu</p>
+<a class="sidebar-link active flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700" href="#">
+<span class="material-symbols-outlined text-[20px] text-gray-500">dashboard</span>
+                    Dashboard
+                </a>
+<a class="sidebar-link flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 hover:text-electica-blue" href="#">
+<span class="material-symbols-outlined text-[20px] text-gray-500">ev_station</span>
+                    Stations
+                </a>
+<a class="sidebar-link flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 hover:text-electica-blue" href="#">
+<span class="material-symbols-outlined text-[20px] text-gray-500">battery_charging_full</span>
+                    Batteries
+                </a>
+<a class="sidebar-link flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 hover:text-electica-blue" href="#">
+<span class="material-symbols-outlined text-[20px] text-gray-500">group</span>
+                    Users
+                </a>
+<a class="sidebar-link flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 hover:text-electica-blue" href="#">
+<span class="material-symbols-outlined text-[20px] text-gray-500">payments</span>
+                    Revenue
+                </a>
+<div class="pt-8">
+<p class="px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4">System</p>
+<a class="sidebar-link flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 hover:text-electica-blue" href="#">
+<span class="material-symbols-outlined text-[20px] text-gray-500">settings</span>
+                        Settings
+                    </a>
+<a class="sidebar-link flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 hover:text-electica-blue" href="#">
+<span class="material-symbols-outlined text-[20px] text-gray-500">help</span>
+                        Support
+                    </a>
+</div>
+</div>
+<div class="p-4 border-t border-gray-100">
+<div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+<div class="h-10 w-10 rounded-full overflow-hidden bg-gray-100 border border-gray-200">
+<img alt="User Profile" class="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBv2oUp2jfcLbTrrbctMb0ziNlJX2Vw7TiWoiuV1D9VKoha8n8JR0iONDxlrnISWkyo0R0M0R6AnjcPVCLolM9tjjjcL-JQGiQuLDsOtWN9HKNk_59T9f_Wz_jqa_q-3BtMGYwZeBPi2elB8C-KtLWBxFFcqTfjnGnCtP1Q-e6wWokF6P9ud5WVSVWPug7w3ox27nXYgy4kO-w1gvPQwddmqEPOQGP-JgVxSK-7c1JLFoOaphNXVdNsslkciclvwWwlkZx2GTGKW3M"/>
+</div>
+<div class="flex flex-col min-w-0">
+<p class="text-sm font-semibold text-gray-900 truncate">Alex Morgan</p>
+<p class="text-[11px] text-gray-500 truncate">System Admin</p>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col overflow-y-auto bg-white relative h-screen">
+<header class="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-10 sticky top-0 z-30">
+<div class="flex items-center gap-8">
+<h2 class="text-xl font-bold text-gray-900 tracking-tight">Global Operations</h2>
+<div class="h-8 w-px bg-gray-200"></div>
+<div class="relative w-80">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[20px]">search</span>
+<input class="w-full bg-gray-50 hover:bg-gray-100 focus:bg-white border-0 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-electica-blue/20 placeholder:text-gray-400 transition-all font-medium" placeholder="Search infrastructure..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="relative p-2.5 text-gray-500 hover:bg-gray-50 hover:text-electica-blue rounded-full transition-colors">
+<span class="material-symbols-outlined text-[22px]">notifications</span>
+<span class="absolute top-2.5 right-2.5 h-2 w-2 bg-red-500 rounded-full border-2 border-white"></span>
+</button>
+<button class="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                    Export
+                </button>
+<button class="flex items-center gap-2 px-5 py-2.5 bg-electica-blue text-white text-sm font-semibold rounded-lg hover:bg-blue-600 transition-all shadow-sm hover:shadow-md">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                    New Station
+                </button>
+</div>
+</header>
+<div class="p-10 w-full space-y-10 max-w-[1600px] mx-auto">
+<div class="flex justify-between items-end">
+<div>
+<h1 class="text-3xl font-bold tracking-tight text-gray-900">Dashboard Overview</h1>
+<p class="text-gray-500 text-sm mt-2 font-medium">Real-time infrastructure health and commercial performance.</p>
+</div>
+<div class="flex bg-gray-50 rounded-lg p-1 border border-gray-100">
+<button class="px-5 py-2 text-xs font-bold rounded-md bg-white text-gray-900 shadow-sm border border-gray-100">24H</button>
+<button class="px-5 py-2 text-xs font-bold text-gray-500 hover:text-gray-900 rounded-md transition-colors">7D</button>
+<button class="px-5 py-2 text-xs font-bold text-gray-500 hover:text-gray-900 rounded-md transition-colors">30D</button>
+</div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+<div class="metric-card p-6">
+<span class="material-symbols-outlined text-electica-blue text-3xl mb-3">ev_station</span>
+<h3 class="text-3xl font-bold text-gray-900">1,482</h3>
+<p class="text-gray-400 text-[11px] font-bold uppercase tracking-wider mt-1 mb-2">Total Stations</p>
+<div class="flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded text-green-700">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+<span class="text-xs font-bold">12.5%</span>
+</div>
+</div>
+<div class="metric-card p-6">
+<span class="material-symbols-outlined text-electica-blue text-3xl mb-3">battery_charging_full</span>
+<h3 class="text-3xl font-bold text-gray-900">8,940</h3>
+<p class="text-gray-400 text-[11px] font-bold uppercase tracking-wider mt-1 mb-2">Active Batteries</p>
+<div class="flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded text-green-700">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+<span class="text-xs font-bold">5.2%</span>
+</div>
+</div>
+<div class="metric-card p-6">
+<span class="material-symbols-outlined text-electica-blue text-3xl mb-3">swap_horiz</span>
+<h3 class="text-3xl font-bold text-gray-900">12k</h3>
+<p class="text-gray-400 text-[11px] font-bold uppercase tracking-wider mt-1 mb-2">Swaps Today</p>
+<div class="flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded text-green-700">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+<span class="text-xs font-bold">18.1%</span>
+</div>
+</div>
+<div class="metric-card p-6">
+<span class="material-symbols-outlined text-electica-blue text-3xl mb-3">payments</span>
+<h3 class="text-3xl font-bold text-gray-900">$45.2k</h3>
+<p class="text-gray-400 text-[11px] font-bold uppercase tracking-wider mt-1 mb-2">Revenue Today</p>
+<div class="flex items-center gap-1 bg-red-50 px-2 py-0.5 rounded text-red-700">
+<span class="material-symbols-outlined text-[14px]">trending_down</span>
+<span class="text-xs font-bold">2.4%</span>
+</div>
+</div>
+<div class="metric-card p-6">
+<span class="material-symbols-outlined text-electica-blue text-3xl mb-3">bolt</span>
+<h3 class="text-3xl font-bold text-gray-900">450 <span class="text-base font-semibold text-gray-400">kWh</span></h3>
+<p class="text-gray-400 text-[11px] font-bold uppercase tracking-wider mt-1 mb-2">Charging Load</p>
+<div class="flex items-center gap-1 bg-yellow-50 px-2 py-0.5 rounded text-yellow-700">
+<span class="material-symbols-outlined text-[14px]">bolt</span>
+<span class="text-xs font-bold">Peak</span>
+</div>
+</div>
+<div class="metric-card p-6">
+<span class="material-symbols-outlined text-electica-blue text-3xl mb-3">health_and_safety</span>
+<h3 class="text-3xl font-bold text-gray-900">98.5%</h3>
+<p class="text-gray-400 text-[11px] font-bold uppercase tracking-wider mt-1 mb-2">Fleet Health</p>
+<div class="flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded text-green-700">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+<span class="text-xs font-bold">Optimal</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<div class="lg:col-span-2 card-container p-8 shadow-sm">
+<div class="flex justify-between items-center mb-10">
+<div>
+<h4 class="font-bold text-lg text-gray-900">Infrastructure Load Analysis</h4>
+<p class="text-xs text-gray-500 font-medium mt-1">Energy consumption across main grid and renewable backups</p>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="h-2.5 w-2.5 rounded-full bg-electica-blue"></span>
+<span class="text-xs text-gray-500 font-bold uppercase">Main Grid</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="h-2.5 w-2.5 rounded-full bg-blue-200"></span>
+<span class="text-xs text-gray-500 font-bold uppercase">Solar Backup</span>
+</div>
+</div>
+</div>
+<div class="h-72 flex flex-col gap-4">
+<div class="flex-1 flex items-end gap-6 px-4">
+<div class="w-full bg-blue-50/50 rounded-t-lg relative group h-[40%] hover:bg-blue-50 transition-colors">
+<div class="absolute bottom-0 w-full bg-blue-200 rounded-t-lg h-[60%]"></div>
+</div>
+<div class="w-full bg-blue-50/50 rounded-t-lg relative group h-[60%] hover:bg-blue-50 transition-colors">
+<div class="absolute bottom-0 w-full bg-blue-300 rounded-t-lg h-[50%]"></div>
+</div>
+<div class="w-full bg-blue-50/50 rounded-t-lg relative group h-[55%] hover:bg-blue-50 transition-colors">
+<div class="absolute bottom-0 w-full bg-blue-300 rounded-t-lg h-[70%]"></div>
+</div>
+<div class="w-full bg-blue-50/50 rounded-t-lg relative group h-[85%] hover:bg-blue-50 transition-colors">
+<div class="absolute bottom-0 w-full bg-electica-blue rounded-t-lg h-[60%]"></div>
+</div>
+<div class="w-full bg-blue-50/50 rounded-t-lg h-[95%] relative hover:bg-blue-50 transition-colors">
+<div class="absolute bottom-0 w-full bg-blue-600 rounded-t-lg h-[75%]"></div>
+</div>
+<div class="w-full bg-blue-50/50 rounded-t-lg relative group h-[70%] hover:bg-blue-50 transition-colors">
+<div class="absolute bottom-0 w-full bg-blue-300 rounded-t-lg h-[55%]"></div>
+</div>
+<div class="w-full bg-blue-50/50 rounded-t-lg relative group h-[50%] hover:bg-blue-50 transition-colors">
+<div class="absolute bottom-0 w-full bg-blue-200 rounded-t-lg h-[40%]"></div>
+</div>
+</div>
+<div class="flex justify-between text-[10px] font-bold text-gray-400 uppercase tracking-widest px-8 border-t border-gray-100 pt-4">
+<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+</div>
+</div>
+</div>
+<div class="card-container p-8 shadow-sm flex flex-col">
+<h4 class="font-bold text-lg mb-8 text-gray-900">Regional Distribution</h4>
+<div class="flex-1 flex flex-col justify-center space-y-8">
+<div class="space-y-3">
+<div class="flex justify-between text-xs font-bold items-center">
+<span class="text-gray-500 uppercase tracking-wide">Southeast Asia</span>
+<span class="text-gray-900 bg-gray-50 px-2 py-0.5 rounded">42%</span>
+</div>
+<div class="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-electica-blue w-[42%] rounded-full"></div>
+</div>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between text-xs font-bold items-center">
+<span class="text-gray-500 uppercase tracking-wide">East Africa</span>
+<span class="text-gray-900 bg-gray-50 px-2 py-0.5 rounded">28%</span>
+</div>
+<div class="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-blue-400 w-[28%] rounded-full"></div>
+</div>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between text-xs font-bold items-center">
+<span class="text-gray-500 uppercase tracking-wide">Latin America</span>
+<span class="text-gray-900 bg-gray-50 px-2 py-0.5 rounded">18%</span>
+</div>
+<div class="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-blue-300 w-[18%] rounded-full"></div>
+</div>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between text-xs font-bold items-center">
+<span class="text-gray-500 uppercase tracking-wide">Others</span>
+<span class="text-gray-900 bg-gray-50 px-2 py-0.5 rounded">12%</span>
+</div>
+<div class="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-gray-300 w-[12%] rounded-full"></div>
+</div>
+</div>
+</div>
+<button class="mt-8 py-3 w-full border border-gray-200 text-xs font-bold text-gray-600 rounded-lg hover:bg-gray-50 hover:text-electica-blue hover:border-electica-blue transition-all uppercase tracking-wide">
+                        View Detailed Geography
+                    </button>
+</div>
+</div>
+<div class="card-container overflow-hidden shadow-sm">
+<div class="p-8 border-b border-gray-100 flex justify-between items-center bg-white">
+<div>
+<h4 class="font-bold text-lg text-gray-900">Active Station Status</h4>
+</div>
+<button class="text-electica-blue text-xs font-bold hover:text-blue-800 transition-colors flex items-center gap-1 uppercase tracking-wide">
+                        View All Activity
+                        <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead class="bg-gray-50 text-[10px] uppercase tracking-wider font-bold text-gray-400 border-b border-gray-100">
+<tr>
+<th class="px-8 py-5 font-bold">Station ID</th>
+<th class="px-8 py-5 font-bold">Location</th>
+<th class="px-8 py-5 font-bold">Inventory</th>
+<th class="px-8 py-5 font-bold">Health</th>
+<th class="px-8 py-5 font-bold">Status</th>
+<th class="px-8 py-5 font-bold"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100 bg-white">
+<tr class="hover:bg-blue-50/30 transition-colors group">
+<td class="px-8 py-5 text-sm font-bold text-gray-900">ST-8821</td>
+<td class="px-8 py-5">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-gray-400">location_on</span>
+<span class="text-sm font-medium text-gray-600">Jakarta Central, ID</span>
+</div>
+</td>
+<td class="px-8 py-5">
+<div class="flex items-center gap-3">
+<span class="text-xs font-bold w-10 text-gray-500 text-right">12/15</span>
+<div class="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-green-500 w-[80%] rounded-full"></div>
+</div>
+</div>
+</td>
+<td class="px-8 py-5">
+<span class="text-[10px] font-bold px-2.5 py-1 rounded bg-green-50 text-green-700 border border-green-100 tracking-wide">OPTIMAL</span>
+</td>
+<td class="px-8 py-5">
+<div class="flex items-center gap-2">
+<span class="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_0_2px_rgba(22,163,74,0.2)]"></span>
+<span class="text-sm text-gray-600 font-medium">Online</span>
+</div>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="text-gray-400 hover:text-electica-blue transition-colors">
+<span class="material-symbols-outlined text-xl">more_vert</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-blue-50/30 transition-colors group">
+<td class="px-8 py-5 text-sm font-bold text-gray-900">ST-4490</td>
+<td class="px-8 py-5">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-gray-400">location_on</span>
+<span class="text-sm font-medium text-gray-600">Nairobi West, KE</span>
+</div>
+</td>
+<td class="px-8 py-5">
+<div class="flex items-center gap-3">
+<span class="text-xs font-bold w-10 text-gray-500 text-right">04/15</span>
+<div class="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-orange-500 w-[26%] rounded-full"></div>
+</div>
+</div>
+</td>
+<td class="px-8 py-5">
+<span class="text-[10px] font-bold px-2.5 py-1 rounded bg-orange-50 text-orange-700 border border-orange-100 tracking-wide">MAINTENANCE</span>
+</td>
+<td class="px-8 py-5">
+<div class="flex items-center gap-2">
+<span class="h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_0_2px_rgba(234,88,12,0.2)]"></span>
+<span class="text-sm text-gray-600 font-medium">Warning</span>
+</div>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="text-gray-400 hover:text-electica-blue transition-colors">
+<span class="material-symbols-outlined text-xl">more_vert</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-blue-50/30 transition-colors group">
+<td class="px-8 py-5 text-sm font-bold text-gray-900">ST-2101</td>
+<td class="px-8 py-5">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-gray-400">location_on</span>
+<span class="text-sm font-medium text-gray-600">Bangkok Sukhumvit, TH</span>
+</div>
+</td>
+<td class="px-8 py-5">
+<div class="flex items-center gap-3">
+<span class="text-xs font-bold w-10 text-gray-500 text-right">15/15</span>
+<div class="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-green-500 w-full rounded-full"></div>
+</div>
+</div>
+</td>
+<td class="px-8 py-5">
+<span class="text-[10px] font-bold px-2.5 py-1 rounded bg-green-50 text-green-700 border border-green-100 tracking-wide">OPTIMAL</span>
+</td>
+<td class="px-8 py-5">
+<div class="flex items-center gap-2">
+<span class="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_0_2px_rgba(22,163,74,0.2)]"></span>
+<span class="text-sm text-gray-600 font-medium">Online</span>
+</div>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="text-gray-400 hover:text-electica-blue transition-colors">
+<span class="material-symbols-outlined text-xl">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<footer class="p-6 text-center text-gray-400 text-xs mt-auto border-t border-gray-100">
+<div class="flex justify-center gap-8 mb-3 font-medium">
+<a class="hover:text-electica-blue transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-electica-blue transition-colors" href="#">Terms of Service</a>
+<a class="hover:text-electica-blue transition-colors" href="#">Contact Support</a>
+</div>
+                © 2024 Electica Infrastructure Solutions. All systems operational.
+            </footer>
+</div>
+</main>
+</div>
+
+</body></html>
