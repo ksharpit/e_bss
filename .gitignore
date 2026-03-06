@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# AWS keys - NEVER commit
+*.pem
+
+# Claude Code internal
+.claude/

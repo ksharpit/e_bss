@@ -22,7 +22,7 @@ export function showToast(message, type = 'info', duration = 3000) {
         success: { bg: '#dcfce7', border: '#bbf7d0', text: '#15803d', icon: 'check_circle' },
         error: { bg: '#fef2f2', border: '#fecaca', text: '#dc2626', icon: 'error' },
         warning: { bg: '#fefce8', border: '#fde68a', text: '#a16207', icon: 'warning' },
-        info: { bg: '#eff6ff', border: '#bfdbfe', text: '#2563eb', icon: 'info' },
+        info: { bg: 'rgba(212,101,74,0.08)', border: 'rgba(212,101,74,0.25)', text: '#D4654A', icon: 'info' },
     };
     const c = colors[type] || colors.info;
 

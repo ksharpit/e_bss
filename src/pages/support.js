@@ -17,7 +17,7 @@ export function renderSupport(container) {
       <!-- Quick Actions -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;margin-bottom:1.25rem">
         ${supportAction('bug_report', 'Report a Bug', 'Found a system issue? Let us know', '#ef4444', '#fef2f2', '#fecaca')}
-        ${supportAction('contact_support', 'Contact Support', 'Reach our 24/7 support team', '#2563eb', '#eff6ff', '#bfdbfe')}
+        ${supportAction('contact_support', 'Contact Support', 'Reach our 24/7 support team', '#D4654A', 'rgba(212,101,74,0.08)', 'rgba(212,101,74,0.25)')}
         ${supportAction('article', 'Documentation', 'Browse API docs and user guides', '#059669', '#ecfdf5', '#a7f3d0')}
       </div>
 
@@ -25,7 +25,7 @@ export function renderSupport(container) {
         <!-- FAQ -->
         <div class="card" style="padding:1.5rem">
           <h3 style="font-size:var(--font-lg);font-weight:700;color:#1e293b;display:flex;align-items:center;gap:10px;margin-bottom:1.25rem">
-            ${icon('help', '20px', 'color:#2563eb')} Frequently Asked Questions
+            ${icon('help', '20px', 'color:#D4654A')} Frequently Asked Questions
           </h3>
           <div style="display:flex;flex-direction:column;gap:8px" id="faq-list">
             ${faqItem('How do I add a new swap station?', 'Navigate to Dashboard → Click "+ New Station" in the header → Fill in the station details including location, capacity, and pod configuration.')}
@@ -39,7 +39,7 @@ export function renderSupport(container) {
         <!-- Submit Ticket -->
         <div class="card" style="padding:1.5rem">
           <h3 style="font-size:var(--font-lg);font-weight:700;color:#1e293b;display:flex;align-items:center;gap:10px;margin-bottom:1.25rem">
-            ${icon('confirmation_number', '20px', 'color:#2563eb')} Submit a Ticket
+            ${icon('confirmation_number', '20px', 'color:#D4654A')} Submit a Ticket
           </h3>
           <div style="display:flex;flex-direction:column;gap:1rem">
             <div>
@@ -71,7 +71,7 @@ export function renderSupport(container) {
       <!-- System Status -->
       <div class="card" style="padding:1.5rem;margin-bottom:1.25rem">
         <h3 style="font-size:var(--font-lg);font-weight:700;color:#1e293b;display:flex;align-items:center;gap:10px;margin-bottom:1.25rem">
-          ${icon('monitoring', '20px', 'color:#2563eb')} System Status
+          ${icon('monitoring', '20px', 'color:#D4654A')} System Status
         </h3>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem">
           ${statusItem('API Gateway', 'Operational', 'success')}
@@ -121,8 +121,8 @@ export function renderSupport(container) {
     container.querySelectorAll('.support-action-card').forEach(card => {
         card.addEventListener('click', () => {
             const action = card.dataset.action;
-            if (action === 'bug') showToast('Bug report form opened — redirecting...', 'info');
-            else if (action === 'contact') showToast('Support team contacted — response within 15 min', 'success');
+            if (action === 'bug') showToast('Bug report form opened - redirecting...', 'info');
+            else if (action === 'contact') showToast('Support team contacted - response within 15 min', 'success');
             else if (action === 'docs') showToast('Documentation portal opening...', 'info');
         });
     });

@@ -25,9 +25,14 @@ import { renderSwapBattery } from './pages/swapBattery.js';
 import { renderSwapConfirmation } from './pages/swapConfirmation.js';
 import { renderSettings } from './pages/settings.js';
 import { renderSupport } from './pages/support.js';
+import { renderUsers } from './pages/users.js';
+import { renderUserDetail } from './pages/userDetail.js';
 
 // ─── Router ───
 import { registerRoute, initRouter } from './utils/router.js';
+
+// ─── Services ───
+import { startChargingSimulator } from './utils/chargingSimulator.js';
 
 // ─── Initialize App ───
 function init() {
@@ -48,9 +53,14 @@ function init() {
   registerRoute('#swap-confirm', () => renderSwapConfirmation(mainContent));
   registerRoute('#settings', () => renderSettings(mainContent));
   registerRoute('#support', () => renderSupport(mainContent));
+  registerRoute('#users', () => renderUsers(mainContent));
+  registerRoute('#user-detail', (userId) => renderUserDetail(mainContent, userId));
 
   // Start router
   initRouter('#dashboard');
+
+  // Start background charging simulation
+  startChargingSimulator();
 }
 
 // Boot when DOM ready

@@ -1,55 +1,46 @@
 // ============================================
 // KPI / Metric Card Component (Electica)
+// Unified rev-kpi-card style across all pages
 // ============================================
-import { icon } from './icons.js';
 
 /**
- * Render a square metric card (for dashboard 6-col grid)
+ * Render a KPI card matching the Revenue page style.
+ * Uses: .rev-kpi-card, .rev-kpi-decor, .rev-kpi-label, .rev-kpi-value, .rev-badge
  */
-export function createMetricCard({ iconName, value, unit, label, sublabel, trend, trendType }) {
-  const trendIcon = trendType === 'up' ? 'trending_up'
-    : trendType === 'down' ? 'trending_down'
-      : trendType === 'peak' ? 'bolt'
-        : 'check_circle';
-
-  const unitSpan = unit ? ` <span class="unit">${unit}</span>` : '';
-  const sublabelHTML = sublabel ? `<span style="font-size:var(--font-md);font-weight:400;color:#6b7280;display:block;margin-top:2px">${sublabel}</span>` : '';
+export function createMetricCard({ value, label, trend, trendType, decor = false }) {
+  const badgeClass = trendType === 'up' || trendType === 'optimal'
+    ? 'rev-badge-up'
+    : trendType === 'down'
+    ? 'rev-badge-down'
+    : 'rev-badge-track';
 
   return `
-    <div class="metric-card">
-      ${icon(iconName, '30px')}
-      <h3 class="metric-value">${value}${unitSpan}</h3>
-      ${sublabelHTML}
-      <p class="metric-label">${label}</p>
-      <div class="metric-trend ${trendType}">
-        ${icon(trendIcon, '14px')}
-        <span>${trend}</span>
-      </div>
+    <div class="rev-kpi-card">
+      ${decor ? '<div class="rev-kpi-decor"></div>' : ''}
+      <p class="rev-kpi-label">${label}</p>
+      <h2 class="rev-kpi-value">${value}</h2>
+      <span class="rev-badge ${badgeClass}">${trend}</span>
     </div>
   `;
 }
 
 /**
- * Render a horizontal KPI card (for detail pages)
+ * Render a horizontal KPI card (used in station/battery detail pages).
  */
-export function createKpiCard({ iconName, value, label, trend, trendType }) {
+export function createKpiCard({ value, label, trend, trendType }) {
+  const badgeClass = trendType === 'up' ? 'rev-badge-up'
+    : trendType === 'down' ? 'rev-badge-down'
+    : 'rev-badge-track';
+
   const trendHTML = trend
-    ? `<div class="metric-trend ${trendType}">
-        ${icon(trendType === 'up' ? 'trending_up' : 'trending_down', '14px')}
-        <span>${trend}</span>
-      </div>`
+    ? `<span class="rev-badge ${badgeClass}" style="margin-top:auto">${trend}</span>`
     : '';
 
   return `
-    <div class="kpi-card">
-      <div class="kpi-top">
-        <div class="kpi-icon">
-          ${icon(iconName, '22px')}
-        </div>
-        ${trendHTML}
-      </div>
-      <div class="kpi-value">${value}</div>
-      <div class="kpi-label">${label}</div>
+    <div class="rev-kpi-card" style="display:flex;flex-direction:column;gap:4px">
+      <p class="rev-kpi-label">${label}</p>
+      <h2 class="rev-kpi-value" style="font-size:1.75rem">${value}</h2>
+      ${trendHTML}
     </div>
   `;
 }

@@ -5,10 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:provider": "cd provider-app && npx vite --port 5174",
+    "dev:user": "cd user-app && npx vite --port 5175",
+    "api": "json-server --watch db.json --port 3001",
     "build": "vite build",
+    "build:provider": "cd provider-app && npx vite build",
+    "build:user": "cd user-app && npx vite build",
+    "build:all": "npm run build && npm run build:provider && npm run build:user",
     "preview": "vite preview"
   },
   "devDependencies": {
+    "json-server": "^1.0.0-beta.12",
     "vite": "^7.3.1"
   },
   "dependencies": {

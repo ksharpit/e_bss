@@ -13,10 +13,10 @@ const statusIcons = {
 export function renderPodGrid(pods) {
   const gridHTML = pods.map(pod => {
     const podIcon = statusIcons[pod.status] || 'battery_unknown';
-    const socText = pod.status === 'empty' ? '—' : `${pod.soc}%`;
+    const socText = pod.status === 'empty' ? '-' : `${pod.soc}%`;
 
     return `
-      <div class="pod-slot ${pod.status}" title="Pod ${pod.id} — ${pod.status}">
+      <div class="pod-slot ${pod.status}" title="Pod ${pod.id} - ${pod.status}">
         ${icon(podIcon, '22px')}
         <span class="pod-slot-id">${pod.id.split('-').pop()}</span>
         <span class="pod-slot-soc">${socText}</span>

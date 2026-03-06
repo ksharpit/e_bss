@@ -168,7 +168,7 @@ const activityTypes = [
   {
     type: 'swap', icon: 'swap', templates: [
       (s, b) => `Battery <strong>${b}</strong> swapped at <strong>${s}</strong>`,
-      (s, b) => `Swap completed — <strong>${b}</strong> → <strong>${s}</strong>`,
+      (s, b) => `Swap completed - <strong>${b}</strong> at <strong>${s}</strong>`,
     ]
   },
   {
@@ -253,4 +253,59 @@ export const mockRevenueByStation = revenueByStation;
 export const mockSwapHistory = {};
 stations.forEach(s => {
   mockSwapHistory[s.id] = getSwapHistory(s.id);
+});
+
+// ─── Users / Customers ───
+const indianNames = [
+  { name: 'Arjun Sharma',   initials: 'AS' },
+  { name: 'Priya Nair',     initials: 'PN' },
+  { name: 'Rahul Mehta',    initials: 'RM' },
+  { name: 'Sneha Patel',    initials: 'SP' },
+  { name: 'Vikram Reddy',   initials: 'VR' },
+  { name: 'Ananya Iyer',    initials: 'AI' },
+  { name: 'Kiran Joshi',    initials: 'KJ' },
+  { name: 'Divya Krishnan', initials: 'DK' },
+  { name: 'Rohan Gupta',    initials: 'RG' },
+  { name: 'Meera Pillai',   initials: 'MP' },
+  { name: 'Suresh Rao',     initials: 'SR' },
+  { name: 'Kavita Singh',   initials: 'KS' },
+];
+
+const vehicleModels = ['Ola S1 Pro', 'Ather 450X', 'Bounce Infinity E1', 'Yulu Miracle', 'Hero Electric Optima'];
+const kycStatuses = ['verified', 'verified', 'verified', 'pending', 'rejected'];
+
+export const mockUsers = indianNames.map((u, i) => {
+  const swapCount = rand(5, 120);
+  const battery = batteries[rand(0, 69)];
+  const station = stations[rand(0, 4)];
+  const swapHistory = [];
+  for (let s = 0; s < Math.min(swapCount, 10); s++) {
+    const d = new Date(2026, 2, rand(1, 3));
+    d.setDate(d.getDate() - s * rand(1, 5));
+    swapHistory.push({
+      id: `SWP-${rand(10000, 99999)}`,
+      date: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+      station: stations[rand(0, 4)].name,
+      batteryId: `BAT-${String(rand(1, 80)).padStart(4, '0')}`,
+      amount: 65,
+      status: 'paid',
+    });
+  }
+  return {
+    id: `USR-${String(i + 1).padStart(4, '0')}`,
+    name: u.name,
+    initials: u.initials,
+    phone: `+91 ${rand(70000, 99999)}${rand(10000, 99999)}`,
+    vehicle: vehicleModels[i % vehicleModels.length],
+    vehicleId: `KA-${rand(10, 99)}-EV-${rand(1000, 9999)}`,
+    batteryId: battery.id,
+    station: station.name,
+    swapCount,
+    totalSpent: swapCount * 65,
+    lastSwap: swapHistory[0]?.date || '—',
+    kycStatus: kycStatuses[i % kycStatuses.length],
+    aadhaar: `XXXX-XXXX-${rand(1000, 9999)}`,
+    pan: `XXXXX${rand(1000, 9999)}X`,
+    swapHistory,
+  };
 });

@@ -1,285 +1,613 @@
 // ============================================
-// Revenue Analytics (Electica Exact)
-// Matches revenue_dashboard_electica_dark reference
+// Revenue Dashboard — Live API Data
+// Coral design system, arch bars, clean cards
 // ============================================
-import { mockStations, mockRevenueDaily, mockRevenueByStation } from '../data/mockData.js';
-import { renderRevenueLineChart } from '../components/revenueChart.js';
 import { icon } from '../components/icons.js';
-import { formatCurrency, formatNumber } from '../utils/helpers.js';
+import { API_BASE } from '../config.js';
+import { formatNumber } from '../utils/helpers.js';
 import { Chart } from 'chart.js';
 
-let revenueBarChartInstance = null;
-let attributionDoughnutInstance = null;
+let revBarInstance = null;
+let revDoughnutInstance = null;
 
-export function renderRevenue(container) {
-  const totalRevenue = mockRevenueByStation.reduce((sum, s) => sum + s.revenue, 0);
-  const totalSwaps = mockRevenueByStation.reduce((sum, s) => sum + s.swaps, 0);
-  const avgPerSwap = (totalRevenue / totalSwaps).toFixed(2);
-  const avgPerStation = Math.round(totalRevenue / mockStations.length);
-  const sorted = [...mockRevenueByStation].sort((a, b) => b.revenue - a.revenue);
+export async function renderRevenue(container) {
+  container.innerHTML = `<div style="padding:3rem;text-align:center;color:#94a3b8;font-size:var(--font-md)">Loading revenue data...</div>`;
+
+  let stations = [], swaps = [], transactions = [];
+  try {
+    [stations, swaps, transactions] = await Promise.all([
+      fetch(`${API_BASE}/stations`).then(r => r.json()),
+      fetch(`${API_BASE}/swaps`).then(r => r.json()),
+      fetch(`${API_BASE}/transactions`).then(r => r.json()),
+    ]);
+  } catch {
+    container.innerHTML = `<div style="padding:3rem;text-align:center;color:#ef4444;font-size:var(--font-md)">Failed to load revenue data from API.</div>`;
+    return;
+  }
+
+  // ── Compute per-station revenue & swap counts from REAL swap records ──
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const today = now.toISOString().slice(0, 10);
+
+  stations.forEach(st => {
+    const stSwaps = swaps.filter(s => s.stationId === st.id);
+    const monthSwaps = stSwaps.filter(s => new Date(s.timestamp) >= thirtyDaysAgo);
+    const todaySwaps = stSwaps.filter(s => s.timestamp && s.timestamp.startsWith(today));
+    st._swapsMonth = monthSwaps.length;
+    st._swapsToday = todaySwaps.length;
+    st._revenueMonth = monthSwaps.length * 65;
+    st._revenueToday = todaySwaps.length * 65;
+    st._allSwaps = stSwaps.length;
+    st._allRevenue = stSwaps.length * 65;
+  });
+
+  const STATION_COLORS = ['#D4654A', 'rgba(212,101,74,0.70)', 'rgba(212,101,74,0.45)', 'rgba(212,101,74,0.25)', 'rgba(212,101,74,0.14)'];
+  const sortedStations = [...stations].sort((a, b) => b._allRevenue - a._allRevenue);
+  const maxRev = sortedStations.length > 0 ? sortedStations[0]._allRevenue : 1;
+
+  // ── Deposit vs Swap revenue — from REAL transactions ──
+  const depositTxns = transactions.filter(t => t.type === 'security_deposit' && t.status === 'completed');
+  const totalDepositRevenue = depositTxns.reduce((sum, t) => sum + (t.amount || 0), 0);
+  const totalSwapRevenue = swaps.reduce((sum, s) => sum + (s.amount || 0), 0);
+  const totalRevenue = totalDepositRevenue + totalSwapRevenue;
+
+  const totalRevenueToday = stations.reduce((s, st) => s + st._revenueToday, 0);
+  const totalSwapsToday = stations.reduce((s, st) => s + st._swapsToday, 0);
+
+  // Attribution percentages
+  const depositPct = totalRevenue > 0 ? Math.round(totalDepositRevenue / totalRevenue * 100) : 0;
+  const swapPct = 100 - depositPct;
+
+  // Build chart data
+  const monthlyData = buildMonthlyTrend(swaps, transactions);
+  const heatmapData = buildHeatmapData(swaps);
 
   container.innerHTML = `
-    <div class="page-header">
+    <!-- Header -->
+    <div class="rev-header">
       <div>
-        <h1 class="page-title">Revenue Dashboard</h1>
-        <p class="page-desc" style="color:#2563eb;font-weight:500">Real-time financial performance and station analytics</p>
+        <h1 class="rev-title">Revenue Dashboard</h1>
+        <p class="rev-subtitle">${stations.length} Stations · ${swaps.length} total swaps · ₹${totalRevenueToday.toLocaleString('en-IN')} today</p>
       </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-outline">${icon('calendar_today', '16px')} Last 30 Days</button>
-        <button class="btn btn-primary">${icon('download', '16px')} Export PDF</button>
+      <div style="display:flex;align-items:center;gap:0.75rem">
+        <button class="rev-btn-outline">
+          ${icon('calendar_today', '14px')} Last 30 Days
+        </button>
+        <button class="rev-btn-dark" id="revenue-export-btn">
+          ${icon('download', '14px')} Export
+        </button>
       </div>
     </div>
 
-    <!-- 4 Metric Cards with mini sparkline -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1.5rem;margin-bottom:2.5rem">
-      ${revMetricCard('TOTAL REVENUE', '$1.28M', '↑ 12.5%', 'up', 'Vs last month')}
-      ${revMetricCard('AVG. REV / STATION', '$8,563', '↑ 4.2%', 'up', `${mockStations.length} Active`)}
-      ${revMetricCard('REVENUE PER SWAP', '$14.20', '↑ 0.8%', 'up', 'Target: $15.00')}
-      ${revMetricCard('MONTHLY GROWTH', '18.4%', '↗ On Track', 'optimal', 'Exceeding goals')}
+    <!-- KPI Cards -->
+    <div class="rev-kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+      ${kpiCard('Total Revenue', formatRevM(totalRevenue), swaps.length + ' swaps + ' + depositTxns.length + ' deposits', 'up', true)}
+      ${kpiCard('Swap Revenue', formatRevM(totalSwapRevenue), swaps.length + ' × ₹65', 'up', false)}
+      ${kpiCard('Deposit Revenue', formatRevM(totalDepositRevenue), depositTxns.length + ' × ₹3,000', 'track', false)}
+      ${kpiCard('Today', formatRevM(totalRevenueToday), totalSwapsToday + ' swaps today', 'track', false)}
     </div>
 
-    <!-- Revenue Trend (monthly bar chart) + Attribution Doughnut -->
-    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:1.5rem;margin-bottom:2.5rem">
-      <div class="card" style="padding:2rem">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem">
-          <h3 style="font-size:var(--font-xl);font-weight:700;color:#1e293b">Revenue Trend</h3>
-          <div style="display:flex;gap:1rem;font-size:var(--font-sm);font-weight:500">
-            <span style="display:flex;align-items:center;gap:6px;color:#64748b"><span style="width:8px;height:8px;border-radius:50%;background:#2563eb"></span> Revenue</span>
-            <span style="display:flex;align-items:center;gap:6px;color:#64748b"><span style="width:8px;height:8px;border-radius:50%;background:#bfdbfe"></span> Projection</span>
+    <!-- Row 2: Trend Chart + Attribution -->
+    <div class="rev-charts-row">
+
+      <!-- Revenue Trend Bar Chart -->
+      <div class="rev-card">
+        <h3 class="rev-card-title">Revenue Trend (Monthly)</h3>
+        <div style="height:280px;margin-top:1.25rem">
+          <canvas id="rev-trend-bar"></canvas>
+        </div>
+      </div>
+
+      <!-- Attribution Doughnut -->
+      <div class="rev-card" style="display:flex;flex-direction:column">
+        <h3 class="rev-card-title">Revenue Attribution</h3>
+        <div class="rev-donut-wrap">
+          <canvas id="rev-attribution"></canvas>
+          <div class="rev-donut-center">
+            <span class="rev-donut-pct">${swapPct}%</span>
+            <span class="rev-donut-lbl">Swap Fee</span>
           </div>
         </div>
-        <div style="height:280px">
-          <canvas id="rev-monthly-bar"></canvas>
-        </div>
-      </div>
-
-      <div class="card" style="padding:2rem;display:flex;flex-direction:column">
-        <h3 style="font-size:var(--font-xl);font-weight:700;color:#1e293b;margin-bottom:1.5rem">Attribution</h3>
-        <div style="flex:1;position:relative;display:flex;align-items:center;justify-content:center">
-          <canvas id="rev-attribution-doughnut" style="max-height:200px"></canvas>
-          <div style="position:absolute;display:flex;flex-direction:column;align-items:center">
-            <span style="font-size:2rem;font-weight:700;color:#1e293b">72%</span>
-            <span style="font-size:var(--font-sm);font-weight:500;color:#94a3b8;text-transform:uppercase">Standard</span>
-          </div>
-        </div>
-        <div style="margin-top:1.5rem;display:flex;flex-direction:column;gap:12px">
-          ${attrItem('#2563eb', 'Standard Swap', '$924k')}
-          ${attrItem('#93c5fd', 'Premium Boost', '$240k')}
-          ${attrItem('#cbd5e1', 'Ad Revenue', '$120k')}
+        <div class="rev-attr-legend">
+          ${attrRow('rgba(212,101,74,0.30)', 'Swap Fee (₹65/swap)', formatRevM(totalSwapRevenue))}
+          ${attrRow('#D4654A', 'Deposit Fee (₹3,000)', formatRevM(totalDepositRevenue))}
         </div>
       </div>
     </div>
 
-    <!-- Top Performing Stations + Swap Frequency Heatmap -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:2.5rem">
-      <div class="card" style="padding:2rem">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem">
-          <h3 style="font-size:var(--font-xl);font-weight:700;color:#1e293b">Top Performing Stations</h3>
-          <button style="color:#2563eb;font-size:var(--font-md);font-weight:600;cursor:pointer">View All</button>
+    <!-- Row 3: Top Stations + Heatmap -->
+    <div class="rev-lower-row">
+
+      <!-- Top Performing Stations -->
+      <div class="rev-card">
+        <div class="rev-card-header">
+          <h3 class="rev-card-title">Top Performing Stations</h3>
+          <span class="rev-link" onclick="location.hash='#stations'">View All</span>
         </div>
-        ${topStation('MG Road Hub (BSS-001)', '₹42,850', 100)}
-        ${topStation('Whitefield Depot (BSS-004)', '₹38,200', 89)}
-        ${topStation('Koramangala Station (BSS-005)', '₹31,500', 74)}
-        ${topStation('Electronic City (BSS-003)', '₹28,900', 68)}
+        <div>
+          ${sortedStations.slice(0, 5).map((s, i) => topStationRow(s, maxRev, STATION_COLORS[i] ?? STATION_COLORS.at(-1))).join('')}
+        </div>
       </div>
 
-      <div class="card" style="padding:2rem">
-        <h3 style="font-size:var(--font-xl);font-weight:700;color:#1e293b;margin-bottom:1.5rem">Swap Frequency Heatmap</h3>
-        ${renderHeatmap()}
+      <!-- Swap Frequency Heatmap -->
+      <div class="rev-card">
+        <h3 class="rev-card-title">Swap Frequency Heatmap</h3>
+        <p style="font-size:var(--font-sm);color:var(--text-muted);margin:4px 0 12px">Last 4 weeks · swaps per day</p>
+        ${renderHeatmap(heatmapData)}
       </div>
     </div>
 
-    <!-- Revenue Breakdown by Station Table -->
-    <div class="card" style="margin-bottom:2.5rem">
-      <div style="padding:2rem;display:flex;align-items:center;justify-content:space-between">
-        <h3 style="font-size:var(--font-xl);font-weight:700;color:#1e293b">Revenue Breakdown by Station</h3>
-        <div style="display:flex;gap:4px">
-          <button class="header-icon-btn">${icon('tune', '18px')}</button>
-          <button class="header-icon-btn">${icon('more_vert', '18px')}</button>
-        </div>
+    <!-- Revenue Breakdown Table -->
+    <div class="rev-card rev-table-card">
+      <div class="rev-card-header">
+        <h3 class="rev-card-title">Revenue Breakdown by Station</h3>
+        <button class="rev-sort-btn" id="rev-sort-btn" title="Sort by revenue">
+          ${icon('swap_vert', '16px')}
+          <span id="rev-sort-label">Revenue ↓</span>
+        </button>
       </div>
-      <table style="width:100%;text-align:left;border-collapse:collapse">
+      <table class="rev-table">
         <thead>
-          <tr style="border-top:1px solid #f1f5f9;border-bottom:1px solid #f1f5f9">
-            <th style="padding:16px 24px;font-size:var(--font-xs);font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em">Station ID</th>
-            <th style="padding:16px 24px;font-size:var(--font-xs);font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em">Location</th>
-            <th style="padding:16px 24px;font-size:var(--font-xs);font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em">Swap Count</th>
-            <th style="padding:16px 24px;font-size:var(--font-xs);font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em">Efficiency</th>
-            <th style="padding:16px 24px;font-size:var(--font-xs);font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em">Total Revenue</th>
-            <th style="padding:16px 24px;font-size:var(--font-xs);font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em">Trend</th>
+          <tr>
+            <th>Station ID</th>
+            <th>Location</th>
+            <th>Swaps (All)</th>
+            <th>Uptime</th>
+            <th>Revenue (All)</th>
+            <th>Status</th>
           </tr>
         </thead>
-        <tbody>
-          ${[
-      { id: 'BSS-001', loc: 'MG Road, Bengaluru', swaps: '1,420', eff: 92, rev: '₹42,850.20', trendUp: true },
-      { id: 'BSS-002', loc: 'Airport Road, Bengaluru', swaps: '1,102', eff: 88, rev: '₹38,200.00', trendUp: true },
-      { id: 'BSS-005', loc: 'Koramangala, Bengaluru', swaps: '980', eff: 74, rev: '₹31,500.50', trendUp: false },
-      { id: 'BSS-003', loc: 'Electronic City, Bengaluru', swaps: '840', eff: 82, rev: '₹28,900.15', trendUp: false },
-    ].map(s => `
-            <tr style="border-bottom:1px solid #fafafa;transition:background 0.15s" onmouseover="this.style.background='rgba(59,130,246,0.03)'" onmouseout="this.style.background='transparent'">
-              <td style="padding:16px 24px;font-weight:600;color:#1e293b">${s.id}</td>
-              <td style="padding:16px 24px;color:#64748b;font-weight:500">${s.loc}</td>
-              <td style="padding:16px 24px;font-weight:500">${s.swaps}</td>
-              <td style="padding:16px 24px">
-                <div style="display:flex;align-items:center;gap:8px">
-                  <div style="width:52px;height:6px;background:#f1f5f9;border-radius:var(--radius-full);overflow:hidden">
-                    <div style="height:100%;width:${s.eff}%;background:${s.eff >= 85 ? '#2563eb' : s.eff >= 75 ? '#f59e0b' : '#ef4444'};border-radius:var(--radius-full)"></div>
-                  </div>
-                  <span style="font-size:var(--font-md);font-weight:600">${s.eff}%</span>
-                </div>
-              </td>
-              <td style="padding:16px 24px;font-weight:700;color:#1e293b">${s.rev}</td>
-              <td style="padding:16px 24px">
-                <span class="material-symbols-outlined" style="font-size:18px;color:${s.trendUp ? '#2563eb' : (s.eff >= 80 ? '#64748b' : '#ef4444')}">${s.trendUp ? 'trending_up' : (s.eff >= 80 ? 'arrow_forward' : 'trending_down')}</span>
-              </td>
-            </tr>
-          `).join('')}
+        <tbody id="rev-table-body">
+          ${sortedStations.map((s, i) => tableRow(s, STATION_COLORS[i % STATION_COLORS.length])).join('')}
         </tbody>
       </table>
-      <div style="padding:16px 24px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #f1f5f9">
-        <span style="font-size:var(--font-sm);color:#94a3b8">Showing 4 of 150 active stations</span>
-        <div style="display:flex;gap:4px">
-          <button class="btn btn-outline" style="padding:6px 14px;font-size:var(--font-sm)">Previous</button>
-          <button class="btn btn-primary" style="padding:6px 14px;font-size:var(--font-sm)">Next</button>
-        </div>
-      </div>
     </div>
 
-    <!-- Footer -->
     <footer class="app-footer">
-      © 2024 Electica Enterprise Finance Management. All rights reserved.
-      <div style="margin-top:8px;display:flex;gap:2rem;justify-content:center">
-        <a href="#" style="text-transform:uppercase;font-size:var(--font-sm);letter-spacing:0.06em">Privacy Policy</a>
-        <a href="#" style="text-transform:uppercase;font-size:var(--font-sm);letter-spacing:0.06em;color:#2563eb">Security</a>
-        <a href="#" style="text-transform:uppercase;font-size:var(--font-sm);letter-spacing:0.06em;color:#2563eb">Support API</a>
-      </div>
+      ${icon('bolt', '16px', 'vertical-align:middle;margin-right:6px;color:#9ca3af')}
+      Electica Enterprise Dashboard © 2026
     </footer>
   `;
 
-  // Render monthly bar chart
+  // Charts
   setTimeout(() => {
-    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-    const revenue = [35, 38, 40, 42, 45, 50, 55, 62, 75, 88, 95, 92];
-    const projection = [null, null, null, null, null, null, null, null, null, 85, 90, 95];
+    buildTrendBar(monthlyData);
+    buildAttributionDoughnut(swapPct, depositPct, totalSwapRevenue, totalDepositRevenue);
+  }, 100);
 
-    const canvas1 = document.getElementById('rev-monthly-bar');
-    if (canvas1) {
-      if (revenueBarChartInstance) revenueBarChartInstance.destroy();
-      revenueBarChartInstance = new Chart(canvas1.getContext('2d'), {
-        type: 'bar',
-        data: {
-          labels: months,
-          datasets: [
-            { label: 'Revenue', data: revenue, backgroundColor: '#2563eb', borderRadius: 4, borderSkipped: false, barPercentage: 0.6 },
-            { label: 'Projection', data: projection, backgroundColor: '#bfdbfe', borderRadius: 4, borderSkipped: false, barPercentage: 0.6, borderDash: [5, 5] },
-          ],
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', cornerRadius: 8, padding: 12 } },
-          scales: {
-            x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10, weight: '700' } } },
-            y: { display: false },
-          },
-        },
-      });
-    }
+  // ── Sort by revenue toggle ──
+  const tableBody = document.getElementById('rev-table-body');
+  const sortBtn = document.getElementById('rev-sort-btn');
+  const sortLabel = document.getElementById('rev-sort-label');
+  let sortAsc = false; // starts descending (highest first)
 
-    // Attribution doughnut
-    const canvas2 = document.getElementById('rev-attribution-doughnut');
-    if (canvas2) {
-      if (attributionDoughnutInstance) attributionDoughnutInstance.destroy();
-      attributionDoughnutInstance = new Chart(canvas2.getContext('2d'), {
-        type: 'doughnut',
-        data: {
-          labels: ['Standard Swap', 'Premium Boost', 'Ad Revenue'],
-          datasets: [{
-            data: [924, 240, 120],
-            backgroundColor: ['#2563eb', '#93c5fd', '#e2e8f0'],
-            borderColor: '#ffffff',
-            borderWidth: 4,
-            borderRadius: 4,
-          }],
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          cutout: '75%',
-          plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', cornerRadius: 8, padding: 12 } },
-        },
-      });
-    }
-  }, 150);
+  sortBtn?.addEventListener('click', () => {
+    sortAsc = !sortAsc;
+    const sorted = [...sortedStations].sort((a, b) =>
+      sortAsc ? a._allRevenue - b._allRevenue : b._allRevenue - a._allRevenue
+    );
+    tableBody.innerHTML = sorted.map((s, i) =>
+      tableRow(s, STATION_COLORS[i % STATION_COLORS.length])
+    ).join('');
+    sortLabel.textContent = sortAsc ? 'Revenue ↑' : 'Revenue ↓';
+  });
+
+  // Revenue Export CSV
+  document.getElementById('revenue-export-btn')?.addEventListener('click', async () => {
+    const { downloadCsv } = await import('../utils/csv.js');
+    const headers = ['Station ID', 'Station Name', 'Location', 'Swaps (All)', 'Revenue (All)', 'Swaps (Today)', 'Revenue (Today)', 'Uptime %', 'Status'];
+    const rows = sortedStations.map(s => [
+      s.id, s.name, s.location,
+      s._allSwaps, s._allRevenue,
+      s._swapsToday, s._revenueToday,
+      s.uptime, s.status,
+    ]);
+    downloadCsv('revenue-breakdown', headers, rows);
+    const { showToast: toast } = await import('../utils/toast.js');
+    toast('Revenue report exported', 'success');
+  });
 }
 
-function revMetricCard(label, value, trend, trendType, sublabel) {
-  const trendColor = trendType === 'up' ? '#059669' : trendType === 'optimal' ? '#2563eb' : '#64748b';
-
-  return `
-    <div class="card" style="padding:1.5rem;display:flex;flex-direction:column;justify-content:flex-end;min-height:160px;position:relative;overflow:hidden">
-      <div style="position:absolute;top:12px;right:12px;width:72px;height:36px;opacity:0.15">
-        <svg viewBox="0 0 72 36" fill="none">
-          <path d="M0 30 Q12 28 18 25 T36 18 T54 8 T72 12" stroke="#2563eb" stroke-width="2" fill="none"/>
-        </svg>
-      </div>
-      <p style="font-size:var(--font-xs);font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">${label}</p>
-      <h3 style="font-size:2rem;font-weight:700;color:#1e293b;line-height:1">${value}</h3>
-      <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
-        <span style="font-size:var(--font-sm);font-weight:600;color:${trendColor}">${trend}</span>
-      </div>
-      <p style="font-size:var(--font-sm);font-weight:500;color:#94a3b8;margin-top:2px">${sublabel}</p>
-    </div>
-  `;
+// ─── Build monthly trend from swap + deposit records ───
+function buildMonthlyTrend(swaps, transactions) {
+  const months = [];
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = d.toISOString().slice(0, 7);
+    const label = d.toLocaleString('en-US', { month: 'short' });
+    months.push({ key, label, swapRev: 0, depositRev: 0 });
+  }
+  swaps.forEach(s => {
+    if (!s.timestamp) return;
+    const key = s.timestamp.slice(0, 7);
+    const month = months.find(m => m.key === key);
+    if (month) month.swapRev += (s.amount || 0);
+  });
+  const deposits = transactions.filter(t => t.type === 'security_deposit' && t.status === 'completed');
+  deposits.forEach(t => {
+    if (!t.timestamp) return;
+    const key = t.timestamp.slice(0, 7);
+    const month = months.find(m => m.key === key);
+    if (month) month.depositRev += (t.amount || 0);
+  });
+  return months;
 }
 
-function attrItem(color, label, value) {
-  return `
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="width:10px;height:10px;border-radius:50%;background:${color}"></span>
-        <span style="font-size:var(--font-md);font-weight:500;color:#64748b">${label}</span>
-      </div>
-      <span style="font-size:var(--font-md);font-weight:700;color:#1e293b">${value}</span>
-    </div>
-  `;
-}
+// ─── Build heatmap data from actual swaps ───
+function buildHeatmapData(swaps) {
+  const now = new Date();
+  const weeks = [];
 
-function topStation(name, revenue, pct) {
-  return `
-    <div style="margin-bottom:1.25rem">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-        <span style="font-size:var(--font-md);font-weight:600;color:#1e293b">${name}</span>
-        <span style="font-size:var(--font-md);font-weight:700;color:#1e293b">${revenue}</span>
-      </div>
-      <div style="width:100%;height:6px;background:#f1f5f9;border-radius:var(--radius-full);overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:#2563eb;border-radius:var(--radius-full)"></div>
-      </div>
-    </div>
-  `;
-}
-
-function renderHeatmap() {
-  const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-  const rows = 4; // 4 time slots
-  const cells = [];
-
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < 7; c++) {
-      const intensity = Math.random();
-      let bg;
-      if (intensity > 0.75) bg = '#1d4ed8';
-      else if (intensity > 0.5) bg = '#3b82f6';
-      else if (intensity > 0.3) bg = '#93c5fd';
-      else bg = '#dbeafe';
-      cells.push(bg);
-    }
+  // Build 4 weeks: week 0 = most recent, week 3 = oldest
+  for (let w = 0; w < 4; w++) {
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - (w * 7 + 6));
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(now);
+    weekEnd.setDate(now.getDate() - (w * 7));
+    weekEnd.setHours(23, 59, 59, 999);
+    const label = `${weekStart.getDate()}/${weekStart.getMonth() + 1}`;
+    weeks.push({ label, days: Array(7).fill(0), start: weekStart, end: weekEnd });
   }
 
+  swaps.forEach(s => {
+    if (!s.timestamp) return;
+    const d = new Date(s.timestamp);
+    const diffDays = Math.floor((now - d) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0 || diffDays >= 28) return;
+    const week = Math.floor(diffDays / 7);
+    const day = d.getDay() === 0 ? 6 : d.getDay() - 1; // Mon=0...Sun=6
+    if (weeks[week]) weeks[week].days[day]++;
+  });
+
+  // Reverse so oldest week is first (top row)
+  weeks.reverse();
+  return weeks;
+}
+
+// ─── KPI Card ───
+function kpiCard(label, value, badge, badgeType, hasDecor) {
+  const badgeClass = badgeType === 'up' ? 'rev-badge-up' : badgeType === 'down' ? 'rev-badge-down' : 'rev-badge-track';
   return `
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:1rem">
-      ${cells.map(bg => `<div style="aspect-ratio:1;background:${bg};border-radius:6px"></div>`).join('')}
-    </div>
-    <div style="display:flex;justify-content:space-between;padding:0 4px">
-      ${days.map(d => `<span style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase">${d}</span>`).join('')}
+    <div class="rev-kpi-card">
+      ${hasDecor ? '<div class="rev-kpi-decor"></div>' : ''}
+      <p class="rev-kpi-label">${label}</p>
+      <h2 class="rev-kpi-value">${value}</h2>
+      <span class="rev-badge ${badgeClass}">${badge}</span>
     </div>
   `;
+}
+
+// ─── Attribution Legend Row ───
+function attrRow(color, label, value) {
+  return `
+    <div class="rev-attr-row">
+      <div style="display:flex;align-items:center;gap:0.625rem">
+        <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></span>
+        <span style="font-size:var(--font-md);color:var(--text-secondary);font-weight:500">${label}</span>
+      </div>
+      <span style="font-size:var(--font-md);font-weight:700;color:var(--text-primary)">${value}</span>
+    </div>
+  `;
+}
+
+// ─── Top Station Row ───
+function topStationRow(station, maxRev, color) {
+  const rev = station._allRevenue;
+  const pct = maxRev > 0 ? Math.round((rev / maxRev) * 100) : 0;
+  return `
+    <div class="rev-station-item" style="cursor:pointer" onclick="location.hash='#station/${station.id}'">
+      <div class="rev-station-row">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="width:10px;height:10px;border-radius:3px;background:${color};flex-shrink:0"></span>
+          <span style="font-size:var(--font-md);font-weight:600;color:var(--text-primary)">${station.name}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:var(--font-xs);color:var(--text-muted)">${station._allSwaps} swaps</span>
+          <span style="font-size:var(--font-md);font-weight:700;color:var(--text-primary)">₹${formatNumber(rev)}</span>
+        </div>
+      </div>
+      <div class="rev-station-bar">
+        <div class="rev-station-fill" style="width:${pct}%;background:${color}"></div>
+      </div>
+    </div>
+  `;
+}
+
+// ─── Heatmap with large cells, hover highlight, week labels ───
+function renderHeatmap(weeks) {
+  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const allVals = weeks.flatMap(w => w.days);
+  const maxVal = Math.max(...allVals, 1);
+
+  function cellLevel(v) {
+    const intensity = v / maxVal;
+    if (intensity > 0.75) return 4;
+    if (intensity > 0.5) return 3;
+    if (intensity > 0.2) return 2;
+    if (intensity > 0) return 1;
+    return 0;
+  }
+
+  let rows = '';
+  weeks.forEach(week => {
+    rows += `<div class="hm-row">`;
+    rows += `<span class="hm-week-label">${week.label}</span>`;
+    week.days.forEach(v => {
+      const lvl = cellLevel(v);
+      rows += `<div class="hm-cell hm-lvl-${lvl}" title="${v} swaps">${v > 0 ? v : ''}</div>`;
+    });
+    rows += `</div>`;
+  });
+
+  // Day labels row
+  let dayRow = `<div class="hm-row">`;
+  dayRow += `<span class="hm-week-label"></span>`;
+  dayLabels.forEach(d => {
+    dayRow += `<span class="hm-day-label">${d}</span>`;
+  });
+  dayRow += `</div>`;
+
+  // Color legend
+  const legend = `
+    <div class="hm-legend">
+      <span class="hm-legend-text">Less</span>
+      <span class="hm-legend-swatch hm-lvl-0"></span>
+      <span class="hm-legend-swatch hm-lvl-1"></span>
+      <span class="hm-legend-swatch hm-lvl-2"></span>
+      <span class="hm-legend-swatch hm-lvl-3"></span>
+      <span class="hm-legend-swatch hm-lvl-4"></span>
+      <span class="hm-legend-text">More</span>
+    </div>
+  `;
+
+  return `
+    <div class="hm-grid">
+      ${rows}
+      ${dayRow}
+    </div>
+    ${legend}
+  `;
+}
+
+// ─── Table Row ───
+function tableRow(station, color) {
+  const isOnline = station.status === 'online';
+  const eff = Math.round(station.uptime || 0);
+  return `
+    <tr class="rev-table-row" onclick="location.hash='#station/${station.id}'" style="cursor:pointer">
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="width:8px;height:8px;border-radius:2px;background:${color};flex-shrink:0"></span>
+          <span style="font-weight:700;color:var(--text-primary)">${station.id}</span>
+        </div>
+      </td>
+      <td>${station.location}</td>
+      <td>${formatNumber(station._allSwaps)}</td>
+      <td>
+        <div class="rev-eff-bar">
+          <div class="rev-eff-track">
+            <div class="rev-eff-fill" style="width:${eff}%;background:${color}"></div>
+          </div>
+          <span style="font-size:var(--font-sm);font-weight:700;color:var(--text-primary)">${eff}%</span>
+        </div>
+      </td>
+      <td style="font-weight:700;color:var(--text-primary)">₹${formatNumber(station._allRevenue)}</td>
+      <td>
+        <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:var(--radius-full);font-size:var(--font-xs);font-weight:700;background:${isOnline ? '#dcfce7' : '#fef9c3'};color:${isOnline ? '#16a34a' : '#ca8a04'};border:1px solid ${isOnline ? '#bbf7d0' : '#fde047'}">${isOnline ? 'Online' : station.status.charAt(0).toUpperCase() + station.status.slice(1)}</span>
+      </td>
+    </tr>
+  `;
+}
+
+// ─── Format large numbers ───
+function formatRevM(n) {
+  if (n >= 1_000_000) return '₹' + (n / 1_000_000).toFixed(2) + 'M';
+  if (n >= 1_000) return '₹' + (n / 1_000).toFixed(1) + 'K';
+  return '₹' + n;
+}
+
+// ─── Trend Bar Chart — stacked swap + deposit revenue ───
+function buildTrendBar(monthlyData) {
+  const canvas = document.getElementById('rev-trend-bar');
+  if (!canvas) return;
+  if (revBarInstance) revBarInstance.destroy();
+
+  const labels = monthlyData.map(m => m.label);
+  const swapData = monthlyData.map(m => Math.round(m.swapRev / 1000));
+  const depositData = monthlyData.map(m => Math.round(m.depositRev / 1000));
+  const n = labels.length;
+
+  // Colors: base, faded, highlighted
+  const swapBase = 'rgba(212,101,74,0.30)';
+  const swapFaded = 'rgba(212,101,74,0.10)';
+  const swapHi = 'rgba(212,101,74,0.45)';
+  const depBase = '#D4654A';
+  const depFaded = 'rgba(212,101,74,0.18)';
+  const depHi = '#D4654A';
+
+  const swapColors = Array(n).fill(swapBase);
+  const depColors = Array(n).fill(depBase);
+
+  const externalTooltip = ({ chart, tooltip }) => {
+    let el = document.getElementById('rev-bar-tooltip');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'rev-bar-tooltip';
+      el.className = 'rev-chart-tooltip';
+      document.body.appendChild(el);
+    }
+
+    if (tooltip.opacity === 0) { el.style.opacity = '0'; return; }
+
+    const dp = tooltip.dataPoints[0];
+    const idx = dp.dataIndex;
+    const swapK = swapData[idx];
+    const depK = depositData[idx];
+    const totalK = swapK + depK;
+
+    el.innerHTML = `
+      <div class="rev-tt-header">
+        <span class="rev-tt-month">${labels[idx]}</span>
+      </div>
+      <div class="rev-tt-value">₹${totalK}<span class="rev-tt-unit">K</span></div>
+      <div class="rev-tt-rows">
+        <div class="rev-tt-row">
+          <span class="rev-tt-dot" style="background:rgba(212,101,74,0.35)"></span>
+          <span class="rev-tt-lbl">Swap Fee</span>
+          <span class="rev-tt-val">₹${swapK}K</span>
+        </div>
+        <div class="rev-tt-row">
+          <span class="rev-tt-dot" style="background:#D4654A"></span>
+          <span class="rev-tt-lbl">Deposit Fee</span>
+          <span class="rev-tt-val">₹${depK}K</span>
+        </div>
+      </div>
+    `;
+
+    const rect = chart.canvas.getBoundingClientRect();
+    el.style.left = (rect.left + window.scrollX + tooltip.caretX + 20) + 'px';
+    el.style.top  = (rect.top  + window.scrollY + tooltip.caretY - el.offsetHeight - 8) + 'px';
+    el.style.opacity = '1';
+  };
+
+  revBarInstance = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Swap Revenue',
+          data: swapData,
+          backgroundColor: swapColors,
+          borderRadius: { topLeft: 2, topRight: 2, bottomLeft: 2, bottomRight: 2 },
+          borderSkipped: false,
+          barPercentage: 0.92,
+          categoryPercentage: 0.95,
+        },
+        {
+          label: 'Deposit Revenue',
+          data: depositData,
+          backgroundColor: depColors,
+          borderRadius: { topLeft: 20, topRight: 20, bottomLeft: 0, bottomRight: 0 },
+          borderSkipped: false,
+          barPercentage: 0.92,
+          categoryPercentage: 0.95,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      onHover: (_evt, activeEls) => {
+        if (activeEls.length > 0) {
+          const idx = activeEls[0].index;
+          for (let i = 0; i < n; i++) {
+            swapColors[i] = i === idx ? swapHi : swapFaded;
+            depColors[i] = i === idx ? depHi : depFaded;
+          }
+        } else {
+          for (let i = 0; i < n; i++) {
+            swapColors[i] = swapBase;
+            depColors[i] = depBase;
+          }
+        }
+        revBarInstance.update('none');
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false, external: externalTooltip },
+      },
+      scales: {
+        x: {
+          stacked: true,
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: '#9ca3af', font: { size: 11, weight: '500' } },
+        },
+        y: {
+          stacked: true,
+          display: false,
+        },
+      },
+    },
+  });
+
+  // Reset colors when mouse leaves the canvas entirely
+  canvas.addEventListener('mouseleave', () => {
+    for (let i = 0; i < n; i++) {
+      swapColors[i] = swapBase;
+      depColors[i] = depBase;
+    }
+    revBarInstance.update('none');
+  });
+}
+
+// ─── Attribution Doughnut — Deposit Fee vs Swap Fee ───
+function buildAttributionDoughnut(swapPct, depositPct, swapRev, depositRev) {
+  const canvas = document.getElementById('rev-attribution');
+  if (!canvas) return;
+  if (revDoughnutInstance) revDoughnutInstance.destroy();
+
+  const attrLabels = ['Swap Fee (₹65)', 'Deposit Fee (₹3,000)'];
+  const attrVals = [formatRevM(swapRev), formatRevM(depositRev)];
+  const attrClrs = ['rgba(212,101,74,0.30)', '#D4654A'];
+
+  const externalTooltip = ({ chart, tooltip }) => {
+    let el = document.getElementById('rev-attr-tt');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'rev-attr-tt';
+      el.className = 'rev-chart-tooltip';
+      document.body.appendChild(el);
+    }
+    if (tooltip.opacity === 0) { el.style.opacity = '0'; return; }
+    const dp = tooltip.dataPoints?.[0];
+    if (!dp) return;
+    const idx = dp.dataIndex;
+    const val = dp.raw;
+    const total = dp.dataset.data.reduce((a, b) => a + b, 0);
+    const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+    el.innerHTML = `
+      <div class="rev-tt-header">
+        <span class="rev-tt-month">${attrLabels[idx]}</span>
+        <span class="rev-tt-mom ${idx === 0 ? 'up' : 'neutral'}">${pct}%</span>
+      </div>
+      <div class="rev-tt-value">${attrVals[idx]}</div>
+      <div class="rev-tt-track">
+        <div class="rev-tt-fill" style="width:${pct}%;background:${attrClrs[idx]}"></div>
+      </div>
+      <div class="rev-tt-sub">${pct}% of total revenue</div>
+    `;
+    const r = chart.canvas.getBoundingClientRect();
+    el.style.left = (r.right + window.scrollX + 12) + 'px';
+    el.style.top  = (r.top  + window.scrollY + r.height / 2 - el.offsetHeight / 2) + 'px';
+    el.style.opacity = '1';
+  };
+
+  revDoughnutInstance = new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: attrLabels,
+      datasets: [{
+        data: [swapPct, depositPct],
+        backgroundColor: ['rgba(212,101,74,0.30)', '#D4654A'],
+        borderWidth: 0,
+        borderRadius: 4,
+        spacing: 2,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '74%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false, external: externalTooltip },
+      },
+    },
+  });
 }
