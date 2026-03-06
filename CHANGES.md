@@ -1,4 +1,4 @@
-# Electica BSS — Development Log
+# Electica BSS - Development Log
 
 ## Project Overview
 
@@ -10,17 +10,17 @@ Three-app Battery Swap System (BSS) built with Vanilla JS + Vite + json-server.
 | Provider App | :5174 | Coral `#D4654A` | Field agent: onboard & approve customers |
 | User App | :5175 | CRED dark gold `#C9A96E` | End-user: swap battery, view history |
 
-**API:** json-server on `:3001` — `db.json` at project root
+**API:** json-server on `:3001` - `db.json` at project root
 
 ---
 
 ## Features Built
 
-### 1. User App — Full Flow
+### 1. User App - Full Flow
 
 #### Auth & Registration (`user-app/src/pages/auth.js`)
 - Phone + OTP login (10-digit normalisation, `+91` formatting)
-- **New user self-registration** — form: name, vehicle, vehicle ID, Aadhaar (auto-formatted `XXXX-XXXX-XXXX`), PAN
+- **New user self-registration** - form: name, vehicle, vehicle ID, Aadhaar (auto-formatted `XXXX-XXXX-XXXX`), PAN
 - POSTs new user with `kycStatus: 'pending'`, `onboardedBy: null`, `kycSubmittedAt: new Date().toISOString()`
 - Pending users routed to pending screen; verified users routed to main app
 
@@ -34,11 +34,11 @@ Three-app Battery Swap System (BSS) built with Vanilla JS + Vite + json-server.
 - Demo station selector: shows online stations, available battery count, distance
 - Disabled if user has no battery allocated (`!user.batteryId`)
 - **Swap Confirmation Sheet** (bottom overlay): station info, battery flow diagram (old → new), health, fee (INR 65)
-- **processSwap()** — 4 API calls:
-  1. `POST /swaps` — creates swap record
-  2. `PATCH /batteries/{oldBat}` — status: charging, back to station
-  3. `PATCH /batteries/{newBat}` — status: deployed, assigned to user
-  4. `PATCH /users/{userId}` — updates batteryId, swapCount, totalSpent, lastSwap
+- **processSwap()** - 4 API calls:
+  1. `POST /swaps` - creates swap record
+  2. `PATCH /batteries/{oldBat}` - status: charging, back to station
+  3. `PATCH /batteries/{newBat}` - status: deployed, assigned to user
+  4. `PATCH /users/{userId}` - updates batteryId, swapCount, totalSpent, lastSwap
 - Success screen: station, new battery ID, charge %, amount paid, transaction ID
 
 #### CRED Dark Theme (`user-app/src/style.css`)
@@ -51,24 +51,24 @@ Three-app Battery Swap System (BSS) built with Vanilla JS + Vite + json-server.
 
 ---
 
-### 2. Provider App — Approval Flow
+### 2. Provider App - Approval Flow
 
 #### New Requests Section (`provider-app/src/pages/home.js`)
 - Fetches all `kycStatus=pending` users; filters `!u.onboardedBy` (self-registered via user app)
 - Displays "New Requests" section at top with coral alert banner:
-  > "Users registered via app — awaiting your physical verification & INR 3,000 deposit collection"
+  > "Users registered via app - awaiting your physical verification & INR 3,000 deposit collection"
 - Each card: name, phone, vehicle, submission date, chevron → opens customer detail
 
 #### Approval Sheet (`provider-app/src/pages/customerDetail.js`)
 - Replaces single "Approve KYC" button with a 2-step gated modal
-- **Step 1 — Payment Proof**: dashed upload zone (`upload_file` icon), accepts JPG/PNG/PDF, shows thumbnail preview + filename + size, step indicator turns coral ✓
-- **Step 2 — Customer Photo**: camera zone (`photo_camera` icon), `capture="environment"` for mobile camera, same preview behaviour
-- "Confirm & Approve Customer" button: starts with `pointer-events:none; opacity:0.35` — activates only when **both** uploads complete
-- Uses `ov.querySelector()` (scoped) instead of `document.getElementById()` — avoids global ID conflicts
+- **Step 1 - Payment Proof**: dashed upload zone (`upload_file` icon), accepts JPG/PNG/PDF, shows thumbnail preview + filename + size, step indicator turns coral ✓
+- **Step 2 - Customer Photo**: camera zone (`photo_camera` icon), `capture="environment"` for mobile camera, same preview behaviour
+- "Confirm & Approve Customer" button: starts with `pointer-events:none; opacity:0.35` - activates only when **both** uploads complete
+- Uses `ov.querySelector()` (scoped) instead of `document.getElementById()` - avoids global ID conflicts
 - On confirm runs 3 API calls:
-  1. `PATCH /users/{id}` — kycStatus: verified, depositPaid: true, batteryId, onboardedBy, depositProof metadata, customerPhoto metadata
-  2. `PATCH /batteries/{id}` — status: deployed, assignedTo: userId
-  3. `POST /transactions` — security_deposit, INR 3,000, mode: Cash
+  1. `PATCH /users/{id}` - kycStatus: verified, depositPaid: true, batteryId, onboardedBy, depositProof metadata, customerPhoto metadata
+  2. `PATCH /batteries/{id}` - status: deployed, assignedTo: userId
+  3. `POST /transactions` - security_deposit, INR 3,000, mode: Cash
 - `onboardedBy: agent.id` set on approval so user moves from "New Requests" to "My Customers"
 
 #### Agent passed through (`provider-app/src/main.js`)
@@ -76,7 +76,7 @@ Three-app Battery Swap System (BSS) built with Vanilla JS + Vite + json-server.
 
 ---
 
-### 3. Data — Stock Batteries
+### 3. Data - Stock Batteries
 
 5 new batteries added for customer onboarding allocation:
 
@@ -156,15 +156,15 @@ BSS_AG/
 ## Running the Project
 
 ```bash
-# Terminal 1 — API
+# Terminal 1 - API
 npx json-server --watch db.json --port 3001
 
-# Terminal 2 — Admin Dashboard
+# Terminal 2 - Admin Dashboard
 cd src && npx vite --port 5173
 
-# Terminal 3 — Provider App
+# Terminal 3 - Provider App
 cd provider-app && npm run dev   # :5174
 
-# Terminal 4 — User App
+# Terminal 4 - User App
 cd user-app && npm run dev       # :5175
 ```

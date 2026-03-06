@@ -26,5 +26,5 @@ dist-ssr
 # AWS keys - NEVER commit
 *.pem
 
-# Claude Code internal
+# IDE / tool config
 .claude/

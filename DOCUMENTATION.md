@@ -1,6 +1,6 @@
-# Electica BSS Dashboard — Project Documentation
+# Electica BSS Dashboard - Project Documentation
 
-> **Electica** — Battery Swapping Station (BSS) Admin Dashboard
+> **Electica** - Battery Swapping Station (BSS) Admin Dashboard
 > Built for EV fleet operators to monitor stations, batteries, swaps, revenue, and customers.
 
 ---
@@ -29,7 +29,7 @@ BSS_AG/
 ├── index.html
 ├── package.json
 └── src/
-    ├── main.js                  # App entry — imports styles, registers routes
+    ├── main.js                  # App entry - imports styles, registers routes
     ├── data/
     │   └── mockData.js          # All mock data (stations, batteries, pods, users)
     ├── components/
@@ -77,18 +77,18 @@ Hash-based SPA routing via `src/utils/router.js`. All routes registered in `src/
 
 | Hash | Page | Param |
 |------|------|-------|
-| `#dashboard` | Dashboard overview | — |
-| `#stations` | Stations list | — |
+| `#dashboard` | Dashboard overview | - |
+| `#stations` | Stations list | - |
 | `#station/<id>` | Station detail | `stationId` e.g. `BSS-001` |
-| `#revenue` | Revenue analytics | — |
-| `#inventory` | Battery inventory | — |
+| `#revenue` | Revenue analytics | - |
+| `#inventory` | Battery inventory | - |
 | `#battery-detail/<id>` | Battery detail | `batteryId` e.g. `BAT-0001` |
-| `#swap` | Initiate Swap | — |
-| `#swap-confirm` | Swap Confirmation | — |
-| `#users` | Users / Customers | — |
+| `#swap` | Initiate Swap | - |
+| `#swap-confirm` | Swap Confirmation | - |
+| `#users` | Users / Customers | - |
 | `#user-detail/<id>` | User detail | `userId` e.g. `USR-0001` |
-| `#settings` | Settings | — |
-| `#support` | Support | — |
+| `#settings` | Settings | - |
+| `#support` | Support | - |
 
 Sub-page sidebar highlighting is handled by a `pageMap` in `sidebar.js`:
 
@@ -138,11 +138,11 @@ All pages use a unified `rev-kpi-card` pattern defined in `components.css`:
 ```
 
 Badge colors:
-- `rev-badge-up` — green `#dcfce7 / #15803d` (positive metrics)
-- `rev-badge-down` — red `#fef2f2 / #dc2626` (alerts)
-- `rev-badge-track` — coral `var(--accent-light) / var(--accent)` (neutral tracking)
+- `rev-badge-up` - green `#dcfce7 / #15803d` (positive metrics)
+- `rev-badge-down` - red `#fef2f2 / #dc2626` (alerts)
+- `rev-badge-track` - coral `var(--accent-light) / var(--accent)` (neutral tracking)
 
-Grid class: `.rev-kpi-grid` — 4 equal columns, used on Dashboard, Stations, Revenue, Users.
+Grid class: `.rev-kpi-grid` - 4 equal columns, used on Dashboard, Stations, Revenue, Users.
 Inventory uses inline override: `grid-template-columns: repeat(5, 1fr)`.
 
 ---
@@ -151,36 +151,36 @@ Inventory uses inline override: `grid-template-columns: repeat(5, 1fr)`.
 
 ### Dashboard (`#dashboard`)
 
-- **KPI strip** — Active Stations, Live Batteries, Today's Swaps, Revenue Today (4 × `rev-kpi-card`)
-- **Row 1** — Operations Today (swap activity), Alert Center (battery/station alerts)
-- **Station Locations Map** — Leaflet.js map showing all 5 station pins with coral/amber markers, `fitBounds` to all coords
-- **Row 2** — Global Operations widget grid (7 cards), Network Activity feed
-- **Clickable widget cards** — each card navigates to its related page on click:
-  - Revenue card → `#revenue`
-  - Fleet Status → `#stations`
-  - Battery Health → `#inventory`
-  - Active Swaps → `#inventory`
-  - Initiate Swap → `#swap`
-  - Stations card → `#stations`
+- **KPI strip** - Active Stations, Live Batteries, Today's Swaps, Revenue Today (4 × `rev-kpi-card`)
+- **Row 1** - Operations Today (swap activity), Alert Center (battery/station alerts)
+- **Station Locations Map** - Leaflet.js map showing all 5 station pins with coral/amber markers, `fitBounds` to all coords
+- **Row 2** - Global Operations widget grid (7 cards), Network Activity feed
+- **Clickable widget cards** - each card navigates to its related page on click:
+ - Revenue card → `#revenue`
+ - Fleet Status → `#stations`
+ - Battery Health → `#inventory`
+ - Active Swaps → `#inventory`
+ - Initiate Swap → `#swap`
+ - Stations card → `#stations`
 
 ### Stations (`#stations`)
 
-- **KPI bar** — Online Stations, Total Pods, Swaps Today, Revenue Today
-- **Station grid** — `stationCard` components, each navigates to `#station/<id>` on click
+- **KPI bar** - Online Stations, Total Pods, Swaps Today, Revenue Today
+- **Station grid** - `stationCard` components, each navigates to `#station/<id>` on click
 - Station cards show: name, location, status badge, pod count, temperature, last sync
 
 ### Station Detail (`#station/<id>`)
 
 - Breadcrumb: `Stations / {Station Name}`
-- **KPI row** — 4 metric cards (Pods Available, Swaps Today, Revenue Today, Avg Swap Time)
+- **KPI row** - 4 metric cards (Pods Available, Swaps Today, Revenue Today, Avg Swap Time)
 - **Left column**: Pod Status Grid (visual cabinet layout), Recent Swap Activity (Indian names: Arjun Sharma, Priya Nair, Rahul Mehta, Sneha Patel)
 - **Right column**: Revenue Trend mini-bar chart, Battery Levels list, Station Info card with Leaflet map
-- **Battery table** — all batteries in this station with SOC bar, status, last swap time
+- **Battery table** - all batteries in this station with SOC bar, status, last swap time
 
 ### Inventory (`#inventory`)
 
-- **KPI bar** — Total Batteries, Charged (≥80%), Deployed, In-Service, Critical (<20%)
-- **Flex-row layout** (matches Users page design) — battery ID, location/user, SOC bar, health %, swaps, cycles, chevron
+- **KPI bar** - Total Batteries, Charged (≥80%), Deployed, In-Service, Critical (<20%)
+- **Flex-row layout** (matches Users page design) - battery ID, location/user, SOC bar, health %, swaps, cycles, chevron
 - Toolbar with search input + status filter pills (All, Available, Charging, Deployed, Fault, Stock)
 - Row click → `#battery-detail/<id>`
 
@@ -189,20 +189,20 @@ Inventory uses inline override: `grid-template-columns: repeat(5, 1fr)`.
 - Breadcrumb: `Inventory / {Battery ID}`
 - Full battery profile: SOC gauge, cycle count, health score, chemistry, temperature
 - Charge history chart, deployment log
-- **Coral theme** throughout — all status badges, metric cards, charts use coral palette
+- **Coral theme** throughout - all status badges, metric cards, charts use coral palette
 
 ### Revenue (`#revenue`)
 
-- **KPI strip** — Total Revenue, Avg / Swap, Top Station, Monthly Growth
-- **Revenue chart** — Chart.js bar chart (7-day or 30-day toggle)
-- **Station breakdown table** — per-station revenue, swap count, efficiency
+- **KPI strip** - Total Revenue, Avg / Swap, Top Station, Monthly Growth
+- **Revenue chart** - Chart.js bar chart (7-day or 30-day toggle)
+- **Station breakdown table** - per-station revenue, swap count, efficiency
 
 ### Initiate Swap (`#swap`)
 
 - Station selection list with real-time ready battery counts (from `mockPods` data)
 - Each station shows name, location, ready count synced with actual pod data
 - Reserve button writes `window.__swapStation = {name, location, lat, lng}` and navigates to `#swap-confirm`
-- **Live Coverage Map** — Leaflet map at bottom showing all station pins
+- **Live Coverage Map** - Leaflet map at bottom showing all station pins
 - Battery ID format: `BAT-XXXX` (4-digit numeric, e.g. `BAT-8921`)
 
 ### Swap Confirmation (`#swap-confirm`)
@@ -215,30 +215,30 @@ Inventory uses inline override: `grid-template-columns: repeat(5, 1fr)`.
 
 ### Users (`#users`)
 
-- **KPI bar** — Total Users, KYC Verified, Total Swaps, Revenue Collected
-- **Customers table** — columns: User (avatar + name + ID), Vehicle, Battery ID, Swaps, Spent, KYC status, View button
+- **KPI bar** - Total Users, KYC Verified, Total Swaps, Revenue Collected
+- **Customers table** - columns: User (avatar + name + ID), Vehicle, Battery ID, Swaps, Spent, KYC status, View button
 - KYC badges: Verified (green), Pending (amber), Rejected (red)
 - Row or View button → `#user-detail/<id>`
 
 ### User Detail (`#user-detail/<id>`)
 
 - Breadcrumb: `Users / {User Name}`
-- **Profile header** — coral avatar with initials, name, KYC badge, phone, vehicle info
-- **Usage Summary** — 4 stat boxes: Total Swaps, Total Spent, Linked Battery, Frequent Station
-- **KYC Documents** — Aadhaar card (masked: `XXXX-XXXX-1234`) + PAN card, upload status, verification date
-- **Swap History table** — Swap ID, Station, Battery, Date, Amount (₹65 each)
-- **Payment Summary** — Total Paid, Rate per Swap (₹65), Last Swap Date
+- **Profile header** - coral avatar with initials, name, KYC badge, phone, vehicle info
+- **Usage Summary** - 4 stat boxes: Total Swaps, Total Spent, Linked Battery, Frequent Station
+- **KYC Documents** - Aadhaar card (masked: `XXXX-XXXX-1234`) + PAN card, upload status, verification date
+- **Swap History table** - Swap ID, Station, Battery, Date, Amount (₹65 each)
+- **Payment Summary** - Total Paid, Rate per Swap (₹65), Last Swap Date
 
 ### Settings (`#settings`)
 
-- **Profile Settings** — editable name, email (updates sidebar avatar/name on save)
-- **Notification Preferences** — toggle switches for swap alerts, maintenance alerts, revenue reports, email digest
-- **System Configuration** — currency, timezone, refresh interval dropdowns
-- **Data Management** (Admin) — tabbed panel with:
-  - **Stations tab**: grid of station cards with status toggle (online/maintenance), **Edit** button (opens same modal as "+ New Station" with pre-filled values + map), Remove button
-  - **Batteries tab**: list with status filter pills (All, Deployed, Available, Charging, Stock, Fault), **Repair** button on fault batteries (fixed-position dropdown to assign to station & start charging), Remove button
-  - **Users tab**: user list with KYC badge, Remove button
-- **Generate Report** — downloads CSV with system metrics
+- **Profile Settings** - editable name, email (updates sidebar avatar/name on save)
+- **Notification Preferences** - toggle switches for swap alerts, maintenance alerts, revenue reports, email digest
+- **System Configuration** - currency, timezone, refresh interval dropdowns
+- **Data Management** (Admin) - tabbed panel with:
+ - **Stations tab**: grid of station cards with status toggle (online/maintenance), **Edit** button (opens same modal as "+ New Station" with pre-filled values + map), Remove button
+ - **Batteries tab**: list with status filter pills (All, Deployed, Available, Charging, Stock, Fault), **Repair** button on fault batteries (fixed-position dropdown to assign to station & start charging), Remove button
+ - **Users tab**: user list with KYC badge, Remove button
+- **Generate Report** - downloads CSV with system metrics
 - Delete confirmation modal with animation
 
 ### Support (`#support`)
@@ -247,7 +247,7 @@ Inventory uses inline override: `grid-template-columns: repeat(5, 1fr)`.
 
 ---
 
-## Data Layer — Live API (`json-server` on port 3001)
+## Data Layer - Live API (`json-server` on port 3001)
 
 All data is served from `db.json` via json-server. Fallback to `src/data/mockData.js` when API is offline.
 
@@ -304,14 +304,14 @@ All data is served from `db.json` via json-server. Fallback to `src/data/mockDat
 ### `sidebar.js`
 
 - Renders nav links: Dashboard, Stations, Revenue, Inventory, Initiate Swap, Users, Settings, Support
-- `updateActiveLink()` — highlights active link based on current hash, uses `pageMap` for sub-pages
+- `updateActiveLink()` - highlights active link based on current hash, uses `pageMap` for sub-pages
 
 ### `kpiCard.js`
 
 Two exports:
 
-- **`createMetricCard({ value, label, trend, trendType, decor })`** — standard `rev-kpi-card` for top-of-page KPI grids
-- **`createKpiCard({ value, label, trend, trendType })`** — same card style, used in detail pages
+- **`createMetricCard({ value, label, trend, trendType, decor })`** - standard `rev-kpi-card` for top-of-page KPI grids
+- **`createKpiCard({ value, label, trend, trendType })`** - same card style, used in detail pages
 
 ### `icons.js`
 
@@ -333,14 +333,14 @@ Visual grid of pod slots (charged, in-use, empty, fault) used in Station Detail.
 ### `header.js`
 
 - Renders top bar with search, Export button, "+ New Station" button
-- **`showNewStationModal(editStation?)`** — exported, dual-purpose modal:
-  - **Create mode** (no arg): empty form + India overview map
-  - **Edit mode** (pass station object): pre-filled name, pods, map zoomed to station with pin, state/city auto-detected
-  - Two-column layout: form (left) + interactive Leaflet map (right)
-  - State → City cascading dropdowns covering all Indian states (28 states + 8 UTs)
-  - Click map to place/move pin, Nominatim reverse geocoding for address
-  - Create mode POSTs new station; Edit mode PATCHes existing station
-- **CSV Export** — context-aware: exports stations, batteries, users, or revenue CSV based on current page
+- **`showNewStationModal(editStation?)`** - exported, dual-purpose modal:
+ - **Create mode** (no arg): empty form + India overview map
+ - **Edit mode** (pass station object): pre-filled name, pods, map zoomed to station with pin, state/city auto-detected
+ - Two-column layout: form (left) + interactive Leaflet map (right)
+ - State → City cascading dropdowns covering all Indian states (28 states + 8 UTs)
+ - Click map to place/move pin, Nominatim reverse geocoding for address
+ - Create mode POSTs new station; Edit mode PATCHes existing station
+- **CSV Export** - context-aware: exports stations, batteries, users, or revenue CSV based on current page
 
 ---
 
@@ -366,11 +366,11 @@ if (!document.getElementById('leaflet-js')) {
 ```
 
 Maps used on:
-- **Dashboard** — `initDashboardMap()`: all stations, `fitBounds`, coral/amber markers
-- **Station Detail** — single station pin
-- **Initiate Swap** — all stations live coverage map
-- **Swap Confirmation** — selected station pin
-- **New/Edit Station Modal** — interactive click-to-place pin, draggable marker, Nominatim reverse geocoding
+- **Dashboard** - `initDashboardMap()`: all stations, `fitBounds`, coral/amber markers
+- **Station Detail** - single station pin
+- **Initiate Swap** - all stations live coverage map
+- **Swap Confirmation** - selected station pin
+- **New/Edit Station Modal** - interactive click-to-place pin, draggable marker, Nominatim reverse geocoding
 
 ---
 
@@ -382,7 +382,7 @@ Background service started from `main.js` on app boot.
 - Fetches all batteries with `status: "charging"` from the API
 - Increments SOC by ~0.56% per tick (reaches 100% in 1.5 hours)
 - When SOC reaches 100%, auto-PATCHes status to `"available"`
-- Silent failure — does not disrupt the UI if API is offline
+- Silent failure - does not disrupt the UI if API is offline
 
 ```
 SOC increment per tick = 100 / (90 minutes × 2 ticks/min) ≈ 0.56%
@@ -413,10 +413,10 @@ Total ticks to 100%: ~180 ticks = 90 minutes = 1.5 hours
 ```bash
 npm install
 
-# Terminal 1 — Start json-server API
+# Terminal 1 - Start json-server API
 npx json-server db.json --port 3001
 
-# Terminal 2 — Start Vite dev server
+# Terminal 2 - Start Vite dev server
 npm run dev       # http://localhost:5173
 ```
 
