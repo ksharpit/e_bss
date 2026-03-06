@@ -26,5 +26,10 @@ dist-ssr
 # AWS keys - NEVER commit
 *.pem
 
+# Internal dev notes (kept locally, not on GitHub)
+DOCUMENTATION.md
+CHANGES.md
+PROJECT_DOCUMENTATION.md
+
 # IDE / tool config
 .claude/
