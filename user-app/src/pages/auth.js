@@ -3,6 +3,7 @@
 // ============================================
 import { showToast } from '../utils/toast.js';
 import { API_BASE } from '../config.js';
+import { apiFetch, setToken } from '../utils/apiFetch.js';
 
 function normalizePhone(p) { return p.replace(/\D/g, '').slice(-10); }
 
@@ -16,7 +17,7 @@ export function renderAuth(container, onSuccess, onPending) {
 async function renderPhoneStep(container, onSuccess, onPending) {
   let demoUsers = [];
   try {
-    demoUsers = await fetch(`${API_BASE}/users?kycStatus=verified&_limit=3`).then(r => r.json());
+    demoUsers = await apiFetch('/users?kycStatus=verified&_limit=3').then(r => r.ok ? r.json() : []);
   } catch { /* show form anyway */ }
 
   container.innerHTML = `
@@ -84,27 +85,15 @@ async function renderPhoneStep(container, onSuccess, onPending) {
     sendBtn.innerHTML = `<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Checking...`;
 
     try {
-      const users   = await fetch(`${API_BASE}/users`).then(r => r.json());
-      const matched = users.find(u => normalizePhone(u.phone) === normalized);
+      // Send OTP via backend
+      const otpRes = await fetch(`${API_BASE}/auth/user/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: '+91 ' + normalized.slice(0, 5) + '-' + normalized.slice(5) })
+      });
 
-      if (!matched) {
-        // New user - show registration option
-        sendBtn.disabled = false;
-        sendBtn.innerHTML = `<span class="material-symbols-outlined">send</span> Continue`;
-        renderNewUserOptions(container, normalized, onSuccess, onPending);
-        return;
-      }
-
-      if (matched.kycStatus === 'pending') {
-        // Pending user - let them in but show pending screen
-        showToast('OTP sent - your account is under review', 'info');
-        const display = '+91 ' + normalized.slice(0, 5) + '-' + normalized.slice(5);
-        renderOtpStep(container, display, matched, onSuccess, onPending);
-        return;
-      }
-
-      if (matched.kycStatus === 'rejected') {
-        showToast('Your KYC was rejected. Please contact support.', 'error');
+      if (!otpRes.ok) {
+        showToast('Failed to send OTP', 'error');
         sendBtn.disabled = false;
         sendBtn.innerHTML = `<span class="material-symbols-outlined">send</span> Continue`;
         return;
@@ -112,10 +101,10 @@ async function renderPhoneStep(container, onSuccess, onPending) {
 
       showToast('OTP sent successfully!', 'success');
       const display = '+91 ' + normalized.slice(0, 5) + '-' + normalized.slice(5);
-      renderOtpStep(container, display, matched, onSuccess, onPending);
+      renderOtpStep(container, display, normalized, onSuccess, onPending);
 
     } catch {
-      showToast('Cannot reach server - is json-server running?', 'error');
+      showToast('Cannot reach server - is the API running?', 'error');
       sendBtn.disabled = false;
       sendBtn.innerHTML = `<span class="material-symbols-outlined">send</span> Continue`;
     }
@@ -269,47 +258,37 @@ function renderRegisterStep(container, normalizedPhone, onSuccess, onPending) {
     btn.innerHTML = `<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Submitting...`;
 
     try {
-      const users = await fetch(`${API_BASE}/users`).then(r => r.json());
-      const nextNum = users.length + 1;
-      const newId   = 'USR-' + String(nextNum).padStart(4, '0');
-      const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
       const formattedPhone = '+91 ' + normalizedPhone.slice(0, 5) + '-' + normalizedPhone.slice(5);
+      const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
-      const newUser = {
-        id: newId,
-        name,
-        initials,
-        phone: formattedPhone,
-        vehicle,
-        vehicleId,
-        batteryId: null,
-        station: null,
-        swapCount: 0,
-        totalSpent: 0,
-        kycStatus: 'pending',
-        depositPaid: false,
-        depositTxnId: null,
-        aadhaar: aadhaar.replace(/(\d{4})/g, '$1-').slice(0, -1),
-        pan,
-        onboardedBy: null,
-        onboardedAt: null,
-        lastSwap: null,
-        kycSubmittedAt: new Date().toISOString(),
-      };
-
-      const res = await fetch(`${API_BASE}/users`, {
+      const res = await fetch(`${API_BASE}/auth/user/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newUser),
+        body: JSON.stringify({
+          name,
+          phone: formattedPhone,
+          vehicle,
+          vehicleId,
+          initials,
+          aadhaar: aadhaar.replace(/(\d{4})/g, '$1-').slice(0, -1),
+          pan,
+          swapCount: 0,
+          totalSpent: 0,
+          kycSubmittedAt: new Date().toISOString(),
+        }),
       });
 
-      if (!res.ok) throw new Error('Failed to create account');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create account');
+
+      // Store JWT token
+      setToken(data.token);
 
       showToast('Application submitted!', 'success');
-      setTimeout(() => { if (onPending) onPending(newId, name); }, 900);
+      setTimeout(() => { if (onPending) onPending(data.user.id, data.user.name); }, 900);
 
-    } catch {
-      showToast('Could not submit - check your connection', 'error');
+    } catch (err) {
+      showToast(err.message || 'Could not submit - check your connection', 'error');
       btn.disabled = false;
       btn.innerHTML = `<span class="material-symbols-outlined">send</span> Submit Application`;
     }
@@ -317,7 +296,7 @@ function renderRegisterStep(container, normalizedPhone, onSuccess, onPending) {
 }
 
 // ── Step 3 (or 2 for pending): OTP Verify ───────────────
-function renderOtpStep(container, displayPhone, user, onSuccess, onPending) {
+function renderOtpStep(container, displayPhone, normalizedPhone, onSuccess, onPending) {
   container.innerHTML = `
     <div class="auth-screen">
       <div class="auth-top">
@@ -363,14 +342,14 @@ function renderOtpStep(container, displayPhone, user, onSuccess, onPending) {
     </div>
   `;
 
-  wireOtpBoxes(user, onSuccess, onPending);
+  wireOtpBoxes(normalizedPhone, displayPhone, onSuccess, onPending);
   startResendTimer();
 
   document.getElementById('auth-back')?.addEventListener('click', () => {
     renderPhoneStep(container, onSuccess, onPending);
   });
 
-  document.getElementById('auth-verify-btn')?.addEventListener('click', () => {
+  document.getElementById('auth-verify-btn')?.addEventListener('click', async () => {
     const otp = Array.from({ length: 6 }, (_, i) =>
       document.getElementById(`otp-${i}`)?.value || ''
     ).join('');
@@ -385,20 +364,51 @@ function renderOtpStep(container, displayPhone, user, onSuccess, onPending) {
     btn.disabled = true;
     btn.innerHTML = `<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Verifying...`;
 
-    setTimeout(() => {
-      if (user.kycStatus === 'pending') {
-        showToast(`Welcome, ${user.name.split(' ')[0]}! Your account is under review.`, 'info');
-        if (onPending) onPending(user.id, user.name);
-      } else {
-        showToast(`Welcome back, ${user.name.split(' ')[0]}!`, 'success');
-        if (onSuccess) onSuccess(user.id, user.name);
+    try {
+      const verifyRes = await fetch(`${API_BASE}/auth/user/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: displayPhone, otp })
+      });
+      const data = await verifyRes.json();
+
+      if (!verifyRes.ok) {
+        showToast(data.error || 'Verification failed', 'error');
+        btn.disabled = false;
+        btn.innerHTML = `<span class="material-symbols-outlined">lock_open</span> Verify OTP`;
+        return;
       }
-    }, 700);
+
+      if (data.isNewUser) {
+        // Phone not found - show registration
+        renderNewUserOptions(container, normalizedPhone, onSuccess, onPending);
+        return;
+      }
+
+      // Store JWT token
+      setToken(data.token);
+
+      if (data.user.kycStatus === 'pending') {
+        showToast(`Welcome, ${data.user.name.split(' ')[0]}! Your account is under review.`, 'info');
+        if (onPending) onPending(data.user.id, data.user.name);
+      } else if (data.user.kycStatus === 'rejected') {
+        showToast('Your KYC was rejected. Please contact support.', 'error');
+        btn.disabled = false;
+        btn.innerHTML = `<span class="material-symbols-outlined">lock_open</span> Verify OTP`;
+      } else {
+        showToast(`Welcome back, ${data.user.name.split(' ')[0]}!`, 'success');
+        if (onSuccess) onSuccess(data.user.id, data.user.name);
+      }
+    } catch {
+      showToast('Cannot reach server', 'error');
+      btn.disabled = false;
+      btn.innerHTML = `<span class="material-symbols-outlined">lock_open</span> Verify OTP`;
+    }
   });
 }
 
 // ── Helpers ──────────────────────────────────────────────
-function wireOtpBoxes(user, onSuccess, onPending) {
+function wireOtpBoxes(normalizedPhone, displayPhone, onSuccess, onPending) {
   const boxes = Array.from(document.querySelectorAll('.otp-box'));
 
   boxes.forEach((box, i) => {

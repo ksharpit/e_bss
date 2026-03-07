@@ -1,5 +1,5 @@
 // ============================================
-// Station Card Component (Electica — Coral Theme)
+// Station Card Component (Electica - Coral Theme)
 // ============================================
 import { icon } from './icons.js';
 import { formatCurrency } from '../utils/helpers.js';

@@ -2,7 +2,7 @@
 // Stations - Find a Swap Station
 // ============================================
 import { showToast } from '../utils/toast.js';
-import { API_BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
 
 const MOCK_DIST = { 'BSS-001': '0.8', 'BSS-002': '3.2', 'BSS-003': '7.1', 'BSS-004': '9.4', 'BSS-005': '2.1' };
 
@@ -15,9 +15,9 @@ export async function renderStations(container, userId) {
   let stations = [], batteries = [], user = null;
   try {
     [stations, batteries, user] = await Promise.all([
-      fetch(`${API_BASE}/stations`).then(r => r.json()),
-      fetch(`${API_BASE}/batteries`).then(r => r.json()),
-      fetch(`${API_BASE}/users/${userId}`).then(r => r.ok ? r.json() : null),
+      apiFetch('/stations').then(r => r.json()),
+      apiFetch('/batteries').then(r => r.json()),
+      apiFetch(`/users/${userId}`).then(r => r.ok ? r.json() : null),
     ]);
   } catch {
     showToast('Cannot reach API', 'error');

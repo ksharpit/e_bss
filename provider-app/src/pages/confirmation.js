@@ -19,16 +19,17 @@ export function renderConfirmation(container, userId, userName, onRegisterAnothe
     </div>
 
     <!-- Details -->
-    <div class="card" style="padding:4px 16px 4px;margin-bottom:20px" class="fade-up">
-      <p class="form-section" style="margin-top:14px">Application Details</p>
-      ${detailRow('badge',        'Customer ID', userId,               true)}
-      ${detailRow('schedule',     'KYC Status',  'Pending Review',     false)}
-      ${detailRow('battery_full', 'Battery',     'Pending Allocation', false)}
-      ${detailRow('info',         'Next Step',   'Verify docs & collect ₹3,000 deposit', false)}
+    <div class="reg-form-card fade-up" style="animation-delay:0.05s">
+      <div class="review-tile-grid">
+        ${detailTile('badge',        'Customer ID',   userId,               true)}
+        ${detailTile('schedule',     'KYC Status',    'Pending Review',     false)}
+        ${detailTile('battery_full', 'Battery',       'Pending Allocation', false)}
+        ${detailTile('info',         'Next Step',     'Verify & collect INR 3,000', false)}
+      </div>
     </div>
 
     <!-- CTA Buttons -->
-    <div style="display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px" class="fade-up" style="animation-delay:0.10s">
       <button class="btn btn-primary" id="conf-new">
         <span class="material-symbols-outlined">person_add</span> Register Another Customer
       </button>
@@ -42,13 +43,13 @@ export function renderConfirmation(container, userId, userName, onRegisterAnothe
   document.getElementById('conf-home').addEventListener('click', onGoHome);
 }
 
-function detailRow(iconName, label, value, mono) {
+function detailTile(iconName, label, value, mono) {
   return `
-  <div class="review-row">
-    <div class="review-icon">
+  <div class="review-tile">
+    <div class="review-tile-icon">
       <span class="material-symbols-outlined">${iconName}</span>
     </div>
-    <span class="review-label">${label}</span>
-    <span class="review-value" style="font-family:${mono ? 'monospace' : 'inherit'}">${value}</span>
+    <div class="review-tile-label">${label}</div>
+    <div class="review-tile-value" style="${mono ? 'font-family:monospace;letter-spacing:0.04em' : ''}">${value}</div>
   </div>`;
 }

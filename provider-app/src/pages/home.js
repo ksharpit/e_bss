@@ -2,7 +2,7 @@
 // Home - Agent Dashboard (Premium Redesign)
 // ============================================
 import { showToast } from '../utils/toast.js';
-import { API_BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
 
 const kycBadge = {
   verified: `<span class="badge badge-green"><span class="material-symbols-outlined">verified</span> Verified</span>`,
@@ -28,9 +28,9 @@ export async function renderHome(container, agent, onOpenCustomer) {
   let myUsers = [], allUsers = [], pendingAll = [];
   try {
     [myUsers, allUsers, pendingAll] = await Promise.all([
-      fetch(`${API_BASE}/users?onboardedBy=${agent.id}`).then(r => r.json()),
-      fetch(`${API_BASE}/users`).then(r => r.json()),
-      fetch(`${API_BASE}/users?kycStatus=pending`).then(r => r.json()),
+      apiFetch(`/users?onboardedBy=${agent.id}`).then(r => r.json()),
+      apiFetch('/users').then(r => r.json()),
+      apiFetch('/users?kycStatus=pending').then(r => r.json()),
     ]);
   } catch {
     showToast('Cannot reach API - check json-server on :3001', 'error');
@@ -110,14 +110,14 @@ export async function renderHome(container, agent, onOpenCustomer) {
 
     <!-- Incoming Self-Registered Requests -->
     ${incomingReqs.length > 0 ? `
-    <div class="section-label fade-up" style="animation-delay:0.07s;display:flex;align-items:center;gap:8px">
+    <div class="section-label fade-up" style="animation-delay:0.07s">
       New Requests
-      <span style="background:var(--coral);color:#fff;font-size:9px;font-weight:800;padding:2px 7px;border-radius:999px;letter-spacing:0.04em">${incomingReqs.length} NEW</span>
+      <span style="background:linear-gradient(135deg,var(--coral),#C4533A);color:#fff;font-size:9px;font-weight:800;padding:3px 8px;border-radius:999px;letter-spacing:0.04em;box-shadow:0 2px 8px rgba(212,101,74,0.30)">${incomingReqs.length} NEW</span>
     </div>
-    <div class="card fade-up" style="overflow:hidden;margin-bottom:16px;border:1.5px solid rgba(212,101,74,0.30);animation-delay:0.08s">
-      <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(212,101,74,0.07);border-bottom:1px solid rgba(212,101,74,0.15)">
-        <span class="material-symbols-outlined" style="font-size:15px;color:var(--coral);font-variation-settings:'FILL' 1">notification_important</span>
-        <span style="font-size:var(--font-xs);font-weight:700;color:var(--coral)">Users registered via app — awaiting your physical verification &amp; INR 3,000 deposit collection</span>
+    <div class="incoming-card fade-up" style="animation-delay:0.08s">
+      <div class="incoming-header">
+        <span class="material-symbols-outlined">notification_important</span>
+        <span>Users registered via app - awaiting verification &amp; INR 3,000 deposit</span>
       </div>
       ${incomingReqs.map(u => `
       <div class="customer-item status-pending" data-id="${u.id}" data-incoming="1">
@@ -155,13 +155,13 @@ export async function renderHome(container, agent, onOpenCustomer) {
     </div>
 
     <!-- Customer List -->
-    <div class="section-label">My Customers (${total})</div>
+    <div class="section-label fade-up" style="animation-delay:0.09s">My Customers (${total})</div>
     <div class="card" style="overflow:hidden;margin-bottom:18px" id="customer-list-card">
       ${renderList(myUsers, 'all')}
     </div>
 
     <!-- Network Overview -->
-    <div class="section-label">Network Overview</div>
+    <div class="section-label fade-up" style="animation-delay:0.10s">Network Overview</div>
     <div class="net-grid fade-up" style="margin-bottom:4px;animation-delay:0.12s">
       ${netStat('group',        'Total Customers',    allUsers.length,                                  '#6366f1', 'rgba(99,102,241,0.10)')}
       ${netStat('verified_user','Verified',           allUsers.filter(u=>u.kycStatus==='verified').length, '#16a34a', 'rgba(22,163,74,0.10)')}

@@ -2,11 +2,42 @@
 // Utility Helpers
 // ============================================
 
-/**
- * Format number as Indian Rupee currency
- */
+// ── Currency config (shared across all pages) ──
+const CURRENCY_CONFIG = {
+  INR: { symbol: '₹', rate: 1 },
+  USD: { symbol: '$', rate: 0.012 },
+  EUR: { symbol: '€', rate: 0.011 },
+};
+
+export function getCurrency() {
+  const code = localStorage.getItem('electica_currency') || 'INR';
+  return CURRENCY_CONFIG[code] || CURRENCY_CONFIG.INR;
+}
+
+/** Currency symbol only */
+export function curSymbol() {
+  return getCurrency().symbol;
+}
+
+/** Format amount with conversion and locale (e.g. ₹3,250 or $39) */
+export function fmtCur(amount) {
+  const { symbol, rate } = getCurrency();
+  const v = Math.round(amount * rate);
+  return symbol + v.toLocaleString('en-IN');
+}
+
+/** Format large amounts abbreviated (e.g. ₹45.3K, $1.2M) */
+export function formatRevM(n) {
+  const { symbol, rate } = getCurrency();
+  const v = Math.round(n * rate);
+  if (v >= 1_000_000) return symbol + (v / 1_000_000).toFixed(2) + 'M';
+  if (v >= 1_000) return symbol + (v / 1_000).toFixed(1) + 'K';
+  return symbol + v;
+}
+
+/** Legacy alias - now currency-aware */
 export function formatCurrency(amount) {
-    return '₹' + amount.toLocaleString('en-IN');
+  return fmtCur(amount);
 }
 
 /**

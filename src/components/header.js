@@ -3,7 +3,7 @@
 // ============================================
 import { icon, ICONS } from './icons.js';
 import { showToast } from '../utils/toast.js';
-import { API_BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
 
 const pageTitles = {
   dashboard:        { title: 'Dashboard' },
@@ -44,22 +44,116 @@ export function renderHeader() {
   updateHeaderTitle();
   window.addEventListener('hashchange', updateHeaderTitle);
 
-  // Wire header export — context-aware CSV export
+  // Wire header export - context-aware CSV export
   document.getElementById('header-export-btn')?.addEventListener('click', async () => {
     const hash = (window.location.hash || '#dashboard').split('/')[0].replace('#', '');
     try {
-      const { downloadCsv } = await import('../utils/csv.js');
-      if (hash === 'dashboard' || hash === 'stations') {
-        const stations = await fetch(`${API_BASE}/stations`).then(r => r.json());
+      const { downloadCsv, downloadMultiSectionCsv } = await import('../utils/csv.js');
+      if (hash === 'dashboard') {
+        // Comprehensive multi-section export
+        showToast('Preparing full report...', 'info');
+        const [stations, batteries, users, swaps, transactions] = await Promise.all([
+          apiFetch('/stations').then(r => r.json()),
+          apiFetch('/batteries').then(r => r.json()),
+          apiFetch('/users').then(r => r.json()),
+          apiFetch('/swaps').then(r => r.json()),
+          apiFetch('/transactions').then(r => r.json()),
+        ]);
+
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const todaySwaps = swaps.filter(s => s.timestamp?.startsWith(todayStr));
+
+        // Per-station revenue
+        stations.forEach(st => {
+          const stSwaps = swaps.filter(s => s.stationId === st.id);
+          st._totalSwaps = stSwaps.length;
+          st._totalRevenue = stSwaps.length * 65;
+          st._swapsToday = todaySwaps.filter(s => s.stationId === st.id).length;
+          st._revToday = st._swapsToday * 65;
+        });
+
+        const totalSwapRev = swaps.reduce((s, sw) => s + (sw.amount || 0), 0);
+        const deposits = transactions.filter(t => t.type === 'security_deposit' && t.status === 'completed');
+        const totalDepRev = deposits.reduce((s, t) => s + (t.amount || 0), 0);
+
+        const sections = [
+          // 1. Summary / Insights
+          {
+            title: 'SUMMARY',
+            headers: ['Metric', 'Value'],
+            rows: [
+              ['Total Stations', stations.length],
+              ['Online Stations', stations.filter(s => s.status === 'online').length],
+              ['Total Batteries', batteries.length],
+              ['Active Batteries', batteries.filter(b => b.status !== 'fault' && b.status !== 'retired').length],
+              ['Faulty Batteries', batteries.filter(b => b.status === 'fault').length],
+              ['Total Users', users.length],
+              ['KYC Verified', users.filter(u => u.kycStatus === 'verified').length],
+              ['KYC Pending', users.filter(u => u.kycStatus === 'pending').length],
+              ['KYC Rejected', users.filter(u => u.kycStatus === 'rejected').length],
+              ['Total Swaps', swaps.length],
+              ['Swaps Today', todaySwaps.length],
+              ['Total Swap Revenue', totalSwapRev],
+              ['Total Deposit Revenue', totalDepRev],
+              ['Total Revenue', totalSwapRev + totalDepRev],
+              ['Report Generated', new Date().toLocaleString('en-IN')],
+            ],
+          },
+          // 2. Stations
+          {
+            title: 'STATIONS',
+            headers: ['Station ID', 'Name', 'Location', 'Status', 'Pods', 'Uptime %', 'Total Swaps', 'Total Revenue', 'Swaps Today', 'Revenue Today'],
+            rows: stations.map(s => [
+              s.id, s.name, s.location, s.status, s.pods, s.uptime,
+              s._totalSwaps, s._totalRevenue, s._swapsToday, s._revToday,
+            ]),
+          },
+          // 3. Batteries
+          {
+            title: 'BATTERIES',
+            headers: ['Battery ID', 'Status', 'SOC %', 'Health %', 'Temperature', 'Cycles', 'Station ID', 'Assigned To'],
+            rows: batteries.map(b => [
+              b.id, b.status, b.soc, b.health, b.temperature || '',
+              b.cycleCount || 0, b.stationId || '', b.assignedTo || '',
+            ]),
+          },
+          // 4. Customers
+          {
+            title: 'CUSTOMERS',
+            headers: ['User ID', 'Name', 'Phone', 'Vehicle', 'Vehicle Reg', 'KYC Status', 'Battery ID', 'Swap Count', 'Total Spent', 'Registered At'],
+            rows: users.map(u => [
+              u.id, u.name, u.phone, u.vehicle, u.vehicleId || '',
+              u.kycStatus, u.batteryId || '', u.swapCount || 0,
+              u.totalSpent || 0, u.registeredAt || '',
+            ]),
+          },
+          // 5. Revenue by Station
+          {
+            title: 'REVENUE BY STATION',
+            headers: ['Station ID', 'Station Name', 'Total Swaps', 'Total Revenue', 'Avg Revenue/Day', 'Share %'],
+            rows: [...stations].sort((a, b) => b._totalRevenue - a._totalRevenue).map(s => {
+              const totalAll = stations.reduce((sum, st) => sum + st._totalRevenue, 0);
+              return [
+                s.id, s.name, s._totalSwaps, s._totalRevenue,
+                s._totalSwaps > 0 ? Math.round(s._totalRevenue / 30) : 0,
+                totalAll > 0 ? Math.round(s._totalRevenue / totalAll * 100) + '%' : '0%',
+              ];
+            }),
+          },
+        ];
+
+        downloadMultiSectionCsv('electica-full-report', sections);
+      } else if (hash === 'stations') {
+        const stations = await apiFetch('/stations').then(r => r.json());
         downloadCsv('stations', ['ID', 'Name', 'Location', 'Status', 'Pods', 'Uptime %'], stations.map(s => [s.id, s.name, s.location, s.status, s.pods, s.uptime]));
       } else if (hash === 'inventory') {
-        const bats = await fetch(`${API_BASE}/batteries`).then(r => r.json());
+        const bats = await apiFetch('/batteries').then(r => r.json());
         downloadCsv('batteries', ['ID', 'Status', 'SOC', 'Health', 'Station', 'Assigned To'], bats.map(b => [b.id, b.status, b.soc, b.health, b.stationId || '', b.assignedTo || '']));
       } else if (hash === 'users') {
-        const usrs = await fetch(`${API_BASE}/users`).then(r => r.json());
+        const usrs = await apiFetch('/users').then(r => r.json());
         downloadCsv('users', ['ID', 'Name', 'Phone', 'Vehicle', 'Swaps', 'KYC'], usrs.map(u => [u.id, u.name, u.phone, u.vehicle, u.swapCount, u.kycStatus]));
       } else if (hash === 'revenue') {
-        const sts = await fetch(`${API_BASE}/stations`).then(r => r.json());
+        const sts = await apiFetch('/stations').then(r => r.json());
         downloadCsv('revenue', ['Station', 'Revenue Today', 'Revenue Month', 'Swaps Month'], sts.map(s => [s.name, s.revenueToday, s.revenueMonth, s.totalSwapsMonth]));
       } else {
         showToast('Export not available for this page', 'info');
@@ -254,8 +348,8 @@ export function showNewStationModal(editStation = null) {
               <span class="material-symbols-outlined" style="font-size:14px;color:#D4654A">location_on</span>
               <span style="font-size:var(--font-xs,11px);font-weight:700;color:var(--text-label,#64748b);text-transform:uppercase;letter-spacing:0.06em">Selected Location</span>
             </div>
-            <p id="ns-address-text" style="font-size:var(--font-sm,13px);color:var(--text-primary,#0f172a);font-weight:600;margin:0 0 2px;line-height:1.4">—</p>
-            <p id="ns-coords-text" style="font-size:var(--font-xs,11px);color:var(--text-muted,#94a3b8);font-family:monospace;margin:0">—</p>
+            <p id="ns-address-text" style="font-size:var(--font-sm,13px);color:var(--text-primary,#0f172a);font-weight:600;margin:0 0 2px;line-height:1.4">-</p>
+            <p id="ns-coords-text" style="font-size:var(--font-xs,11px);color:var(--text-muted,#94a3b8);font-family:monospace;margin:0">-</p>
           </div>
 
           <!-- Actions -->
@@ -389,7 +483,7 @@ export function showNewStationModal(editStation = null) {
   let geoTimer = null;
   function reverseGeocode(lat, lng) {
     clearTimeout(geoTimer);
-    // Instant fallback — nearest city by distance
+    // Instant fallback - nearest city by distance
     autoSelectNearest(lat, lng);
     geoTimer = setTimeout(async () => {
       const addrEl = overlay.querySelector('#ns-address-text');
@@ -448,7 +542,7 @@ export function showNewStationModal(editStation = null) {
       placePin(editStation.lat, editStation.lng);
       autoSelectNearest(editStation.lat, editStation.lng);
       const addrEl = overlay.querySelector('#ns-address-text');
-      if (addrEl) addrEl.textContent = editStation.location || '—';
+      if (addrEl) addrEl.textContent = editStation.location || '-';
     }
   }
 
@@ -492,9 +586,8 @@ export function showNewStationModal(editStation = null) {
     if (isEdit) {
       // ── EDIT MODE: PATCH existing station ──
       try {
-        const res = await fetch(`${API_BASE}/stations/${editStation.id}`, {
+        const res = await apiFetch(`/stations/${editStation.id}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name,
             location: locationStr || editStation.location,
@@ -512,7 +605,7 @@ export function showNewStationModal(editStation = null) {
           window.dispatchEvent(new HashChangeEvent('hashchange'));
         }
       } catch {
-        showToast('Failed to update station — is the API running?', 'error');
+        showToast('Failed to update station - is the API running?', 'error');
         submitBtn.textContent = 'Save Changes';
         submitBtn.style.pointerEvents = 'auto';
       }
@@ -535,9 +628,8 @@ export function showNewStationModal(editStation = null) {
       };
 
       try {
-        const res = await fetch(`${API_BASE}/stations`, {
+        const res = await apiFetch('/stations', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newStation),
         });
         if (!res.ok) throw new Error('API error');
@@ -545,7 +637,7 @@ export function showNewStationModal(editStation = null) {
         close();
         setTimeout(() => { location.hash = '#station/' + stationId; }, 600);
       } catch {
-        showToast('Failed to create station — is the API running?', 'error');
+        showToast('Failed to create station - is the API running?', 'error');
         submitBtn.textContent = 'Create Station';
         submitBtn.style.pointerEvents = 'auto';
       }

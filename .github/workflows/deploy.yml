@@ -55,5 +55,12 @@ jobs:
           # Upload User App
           scp $SSH_OPTS -r user-app/dist/* ubuntu@$EC2_HOST:/var/www/electica/user/
 
+          # Upload server + config files
+          scp $SSH_OPTS -r server ubuntu@$EC2_HOST:/var/www/electica/
+          scp $SSH_OPTS package.json package-lock.json deploy/ecosystem.config.js ubuntu@$EC2_HOST:/var/www/electica/
+
+          # Install production deps and restart API
+          ssh $SSH_OPTS ubuntu@$EC2_HOST "cd /var/www/electica && npm ci --omit=dev && pm2 restart electica-api"
+
           # Clean up
           rm -f deploy_key.pem

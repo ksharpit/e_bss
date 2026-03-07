@@ -2,7 +2,7 @@
 // History - Premium Swap Timeline (CRED Dark)
 // ============================================
 import { showToast } from '../utils/toast.js';
-import { API_BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
 
 function fmtDate(iso) {
   if (!iso) return '-';
@@ -33,7 +33,7 @@ export async function renderHistory(container, userId) {
 
   let swaps = [];
   try {
-    swaps = await fetch(`${API_BASE}/swaps?userId=${userId}`)
+    swaps = await apiFetch(`/swaps?userId=${userId}`)
       .then(r => r.json());
     swaps.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   } catch {
@@ -116,7 +116,7 @@ function allocCard(s) {
         <span style="font-size:10px;color:var(--text-soft);font-weight:600">Received</span>
         <div style="display:flex;align-items:center;gap:6px;background:rgba(34,211,164,0.08);border:1px solid rgba(34,211,164,0.18);padding:4px 10px;border-radius:8px">
           <span class="material-symbols-outlined" style="font-size:13px;color:var(--primary);font-variation-settings:'FILL' 1">battery_full</span>
-          <span style="font-family:monospace;font-size:11px;font-weight:700;color:var(--primary);letter-spacing:0.02em">${s.batteryIn || '—'}</span>
+          <span style="font-family:monospace;font-size:11px;font-weight:700;color:var(--primary);letter-spacing:0.02em">${s.batteryIn || '-'}</span>
         </div>
       </div>
     </div>
@@ -132,7 +132,7 @@ function swapCard(s) {
         <span class="material-symbols-outlined" style="font-size:19px;color:var(--gold);font-variation-settings:'FILL' 1">ev_station</span>
       </div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:var(--font-sm);font-weight:800;color:var(--text);letter-spacing:-0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.stationName || '—'}</div>
+        <div style="font-size:var(--font-sm);font-weight:800;color:var(--text);letter-spacing:-0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.stationName || '-'}</div>
         <div style="font-size:var(--font-xs);color:var(--text-soft);font-weight:500;margin-top:1px">${relativeDay(s.timestamp)} · ${fmtTime(s.timestamp)}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">

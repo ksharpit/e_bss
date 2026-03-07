@@ -1,10 +1,10 @@
 // ============================================
-// Revenue Dashboard — Live API Data
+// Revenue Dashboard - Live API Data
 // Coral design system, arch bars, clean cards
 // ============================================
 import { icon } from '../components/icons.js';
-import { API_BASE } from '../config.js';
-import { formatNumber } from '../utils/helpers.js';
+import { apiFetch } from '../utils/apiFetch.js';
+import { formatNumber, formatRevM, fmtCur, curSymbol } from '../utils/helpers.js';
 import { Chart } from 'chart.js';
 
 let revBarInstance = null;
@@ -16,9 +16,9 @@ export async function renderRevenue(container) {
   let stations = [], swaps = [], transactions = [];
   try {
     [stations, swaps, transactions] = await Promise.all([
-      fetch(`${API_BASE}/stations`).then(r => r.json()),
-      fetch(`${API_BASE}/swaps`).then(r => r.json()),
-      fetch(`${API_BASE}/transactions`).then(r => r.json()),
+      apiFetch('/stations').then(r => r.json()),
+      apiFetch('/swaps').then(r => r.json()),
+      apiFetch('/transactions').then(r => r.json()),
     ]);
   } catch {
     container.innerHTML = `<div style="padding:3rem;text-align:center;color:#ef4444;font-size:var(--font-md)">Failed to load revenue data from API.</div>`;
@@ -46,7 +46,7 @@ export async function renderRevenue(container) {
   const sortedStations = [...stations].sort((a, b) => b._allRevenue - a._allRevenue);
   const maxRev = sortedStations.length > 0 ? sortedStations[0]._allRevenue : 1;
 
-  // ── Deposit vs Swap revenue — from REAL transactions ──
+  // ── Deposit vs Swap revenue - from REAL transactions ──
   const depositTxns = transactions.filter(t => t.type === 'security_deposit' && t.status === 'completed');
   const totalDepositRevenue = depositTxns.reduce((sum, t) => sum + (t.amount || 0), 0);
   const totalSwapRevenue = swaps.reduce((sum, s) => sum + (s.amount || 0), 0);
@@ -68,12 +68,9 @@ export async function renderRevenue(container) {
     <div class="rev-header">
       <div>
         <h1 class="rev-title">Revenue Dashboard</h1>
-        <p class="rev-subtitle">${stations.length} Stations · ${swaps.length} total swaps · ₹${totalRevenueToday.toLocaleString('en-IN')} today</p>
+        <p class="rev-subtitle">${stations.length} Stations · ${swaps.length} total swaps · ${formatRevM(totalRevenueToday)} today</p>
       </div>
       <div style="display:flex;align-items:center;gap:0.75rem">
-        <button class="rev-btn-outline">
-          ${icon('calendar_today', '14px')} Last 30 Days
-        </button>
         <button class="rev-btn-dark" id="revenue-export-btn">
           ${icon('download', '14px')} Export
         </button>
@@ -83,8 +80,8 @@ export async function renderRevenue(container) {
     <!-- KPI Cards -->
     <div class="rev-kpi-grid" style="grid-template-columns:repeat(4,1fr)">
       ${kpiCard('Total Revenue', formatRevM(totalRevenue), swaps.length + ' swaps + ' + depositTxns.length + ' deposits', 'up', true)}
-      ${kpiCard('Swap Revenue', formatRevM(totalSwapRevenue), swaps.length + ' × ₹65', 'up', false)}
-      ${kpiCard('Deposit Revenue', formatRevM(totalDepositRevenue), depositTxns.length + ' × ₹3,000', 'track', false)}
+      ${kpiCard('Swap Revenue', formatRevM(totalSwapRevenue), swaps.length + ' x ' + fmtCur(65), 'up', false)}
+      ${kpiCard('Deposit Revenue', formatRevM(totalDepositRevenue), depositTxns.length + ' x ' + fmtCur(3000), 'track', false)}
       ${kpiCard('Today', formatRevM(totalRevenueToday), totalSwapsToday + ' swaps today', 'track', false)}
     </div>
 
@@ -110,8 +107,8 @@ export async function renderRevenue(container) {
           </div>
         </div>
         <div class="rev-attr-legend">
-          ${attrRow('rgba(212,101,74,0.30)', 'Swap Fee (₹65/swap)', formatRevM(totalSwapRevenue))}
-          ${attrRow('#D4654A', 'Deposit Fee (₹3,000)', formatRevM(totalDepositRevenue))}
+          ${attrRow('rgba(212,101,74,0.30)', 'Swap Fee (' + fmtCur(65) + '/swap)', formatRevM(totalSwapRevenue))}
+          ${attrRow('#D4654A', 'Deposit Fee (' + fmtCur(3000) + ')', formatRevM(totalDepositRevenue))}
         </div>
       </div>
     </div>
@@ -306,7 +303,7 @@ function topStationRow(station, maxRev, color) {
         </div>
         <div style="display:flex;align-items:center;gap:12px">
           <span style="font-size:var(--font-xs);color:var(--text-muted)">${station._allSwaps} swaps</span>
-          <span style="font-size:var(--font-md);font-weight:700;color:var(--text-primary)">₹${formatNumber(rev)}</span>
+          <span style="font-size:var(--font-md);font-weight:700;color:var(--text-primary)">${fmtCur(rev)}</span>
         </div>
       </div>
       <div class="rev-station-bar">
@@ -394,7 +391,7 @@ function tableRow(station, color) {
           <span style="font-size:var(--font-sm);font-weight:700;color:var(--text-primary)">${eff}%</span>
         </div>
       </td>
-      <td style="font-weight:700;color:var(--text-primary)">₹${formatNumber(station._allRevenue)}</td>
+      <td style="font-weight:700;color:var(--text-primary)">${fmtCur(station._allRevenue)}</td>
       <td>
         <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:var(--radius-full);font-size:var(--font-xs);font-weight:700;background:${isOnline ? '#dcfce7' : '#fef9c3'};color:${isOnline ? '#16a34a' : '#ca8a04'};border:1px solid ${isOnline ? '#bbf7d0' : '#fde047'}">${isOnline ? 'Online' : station.status.charAt(0).toUpperCase() + station.status.slice(1)}</span>
       </td>
@@ -402,14 +399,7 @@ function tableRow(station, color) {
   `;
 }
 
-// ─── Format large numbers ───
-function formatRevM(n) {
-  if (n >= 1_000_000) return '₹' + (n / 1_000_000).toFixed(2) + 'M';
-  if (n >= 1_000) return '₹' + (n / 1_000).toFixed(1) + 'K';
-  return '₹' + n;
-}
-
-// ─── Trend Bar Chart — stacked swap + deposit revenue ───
+// ─── Trend Bar Chart - stacked swap + deposit revenue ───
 function buildTrendBar(monthlyData) {
   const canvas = document.getElementById('rev-trend-bar');
   if (!canvas) return;
@@ -452,17 +442,17 @@ function buildTrendBar(monthlyData) {
       <div class="rev-tt-header">
         <span class="rev-tt-month">${labels[idx]}</span>
       </div>
-      <div class="rev-tt-value">₹${totalK}<span class="rev-tt-unit">K</span></div>
+      <div class="rev-tt-value">${curSymbol()}${totalK}<span class="rev-tt-unit">K</span></div>
       <div class="rev-tt-rows">
         <div class="rev-tt-row">
           <span class="rev-tt-dot" style="background:rgba(212,101,74,0.35)"></span>
           <span class="rev-tt-lbl">Swap Fee</span>
-          <span class="rev-tt-val">₹${swapK}K</span>
+          <span class="rev-tt-val">${curSymbol()}${swapK}K</span>
         </div>
         <div class="rev-tt-row">
           <span class="rev-tt-dot" style="background:#D4654A"></span>
           <span class="rev-tt-lbl">Deposit Fee</span>
-          <span class="rev-tt-val">₹${depK}K</span>
+          <span class="rev-tt-val">${curSymbol()}${depK}K</span>
         </div>
       </div>
     `;
@@ -546,13 +536,13 @@ function buildTrendBar(monthlyData) {
   });
 }
 
-// ─── Attribution Doughnut — Deposit Fee vs Swap Fee ───
+// ─── Attribution Doughnut - Deposit Fee vs Swap Fee ───
 function buildAttributionDoughnut(swapPct, depositPct, swapRev, depositRev) {
   const canvas = document.getElementById('rev-attribution');
   if (!canvas) return;
   if (revDoughnutInstance) revDoughnutInstance.destroy();
 
-  const attrLabels = ['Swap Fee (₹65)', 'Deposit Fee (₹3,000)'];
+  const attrLabels = ['Swap Fee (' + fmtCur(65) + ')', 'Deposit Fee (' + fmtCur(3000) + ')'];
   const attrVals = [formatRevM(swapRev), formatRevM(depositRev)];
   const attrClrs = ['rgba(212,101,74,0.30)', '#D4654A'];
 

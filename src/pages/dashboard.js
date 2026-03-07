@@ -3,10 +3,10 @@
 // Bento grid with widget cards inspired by modern financial dashboards
 // ============================================
 import { mockRevenueDaily } from '../data/mockData.js';
-import { API_BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
 import { renderConcentricChart, highlightConcentricRing, resetConcentricChart } from '../components/revenueChart.js';
 import { icon } from '../components/icons.js';
-import { formatNumber } from '../utils/helpers.js';
+import { formatNumber, fmtCur, curSymbol } from '../utils/helpers.js';
 import { showToast } from '../utils/toast.js';
 
 export async function renderDashboard(container) {
@@ -27,10 +27,10 @@ export async function renderDashboard(container) {
   let allSwaps         = [];
   try {
     const [batteries, swaps, verifiedUsers, stationsData] = await Promise.all([
-      fetch(`${API_BASE}/batteries`).then(r => r.json()),
-      fetch(`${API_BASE}/swaps`).then(r => r.json()),
-      fetch(`${API_BASE}/users?kycStatus=verified`).then(r => r.json()),
-      fetch(`${API_BASE}/stations`).then(r => r.json()),
+      apiFetch('/batteries').then(r => r.json()),
+      apiFetch('/swaps').then(r => r.json()),
+      apiFetch('/users?kycStatus=verified').then(r => r.json()),
+      apiFetch('/stations').then(r => r.json()),
     ]);
     stations = stationsData;
     allSwaps = swaps;
@@ -55,7 +55,7 @@ export async function renderDashboard(container) {
       .slice(0, 5)
       .map(u => ({
         type: 'verification', iconName: 'verified_user',
-        html: `<b>${u.name}</b> KYC verified — <b>${u.batteryId || 'battery pending'}</b> allocated`,
+        html: `<b>${u.name}</b> KYC verified - <b>${u.batteryId || 'battery pending'}</b> allocated`,
         time: new Date(u.onboardedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
         timestamp: u.onboardedAt,
         userId: u.id,
@@ -115,7 +115,7 @@ export async function renderDashboard(container) {
   const swapGrowthCirc = 2 * Math.PI * 34;
   const swapGrowthOffset = swapGrowthCirc - (swapGrowthCirc * Math.min(swapGrowthAbs, 100) / 100);
 
-  // Energy dispensed today (kWh) — 2 kWh per swap
+  // Energy dispensed today (kWh) - 2 kWh per swap
   const energyToday    = (swapsToday * 2).toFixed(1);
   const energyCapacity = totalPods * 2 * 3;   // daily capacity: pods * 2 kWh * 3 cycles
   const energyPct      = Math.min(100, Math.round((energyToday / energyCapacity) * 100));
@@ -173,7 +173,7 @@ export async function renderDashboard(container) {
           </div>
           <div class="widget-badge">Today</div>
         </div>
-        <div class="widget-value">₹${formatNumber(totalRevenue)}</div>
+        <div class="widget-value">${fmtCur(totalRevenue)}</div>
         <div class="widget-label">Revenue Today</div>
         <div class="mini-bars" id="revenue-mini-bars">
           ${miniBars.map(v => `<div class="mini-bar" style="height:${Math.max((v / maxBar) * 100, 8)}%;background:var(--accent);opacity:${0.4 + (v / maxBar) * 0.6}"></div>`).join('')}
@@ -334,7 +334,7 @@ export async function renderDashboard(container) {
                   <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:5px">
                     <span style="width:10px;height:10px;border-radius:3px;background:${dotColor};flex-shrink:0"></span>
                     <span style="font-size:var(--font-sm);font-weight:600;color:${nameColor};flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</span>
-                    <span style="font-size:var(--font-sm);font-weight:700;color:${valColor}">₹${((s._revToday || 0) / 1000).toFixed(1)}K</span>
+                    <span style="font-size:var(--font-sm);font-weight:700;color:${valColor}">${fmtCur(s._revToday || 0)}</span>
                   </div>
                   <div style="display:flex;align-items:center;gap:0.5rem">
                     <div style="flex:1;height:6px;background:#f3f4f6;border-radius:3px;overflow:hidden">
@@ -347,7 +347,7 @@ export async function renderDashboard(container) {
             })()}
             <div style="padding-top:0.5rem;border-top:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center">
               <span style="font-size:var(--font-sm);font-weight:600;color:var(--text-muted)">Total Today</span>
-              <span style="font-size:var(--font-base);font-weight:700;color:${totalRevenue === 0 ? '#cbd5e1' : 'var(--text-primary)'}">₹${formatNumber(totalRevenue)}</span>
+              <span style="font-size:var(--font-base);font-weight:700;color:${totalRevenue === 0 ? '#cbd5e1' : 'var(--text-primary)'}">${fmtCur(totalRevenue)}</span>
             </div>
           </div>
         </div>
@@ -388,7 +388,7 @@ export async function renderDashboard(container) {
 
     <footer class="app-footer">
       ${icon('bolt', '16px', 'vertical-align:middle;margin-right:6px;color:#9ca3af')}
-      Electica Enterprise Dashboard © 2024
+      Electica Enterprise Dashboard © 2026
     </footer>
   `;
 
@@ -437,7 +437,7 @@ export async function renderDashboard(container) {
     });
   });
 
-  // Wire activity filters — real type-based filtering
+  // Wire activity filters - real type-based filtering
   function applyActivityFilters() {
     const active = new Set(
       [...container.querySelectorAll('.activity-filter.active')].map(c => c.dataset.filter)
@@ -456,7 +456,7 @@ export async function renderDashboard(container) {
     });
   });
 
-  // Show alerts — scroll to activity manager with only alerts filter active
+  // Show alerts - scroll to activity manager with only alerts filter active
   document.getElementById('show-tasks-btn')?.addEventListener('click', () => {
     const section = container.querySelector('.activity-section');
     if (section) {

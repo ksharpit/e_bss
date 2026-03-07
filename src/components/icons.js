@@ -1,5 +1,5 @@
 // ============================================
-// Icons — Material Symbols Outlined
+// Icons - Material Symbols Outlined
 // ============================================
 
 /**

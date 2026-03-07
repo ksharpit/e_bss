@@ -2,7 +2,7 @@
 // Customer Detail - Provider App (Premium)
 // ============================================
 import { showToast } from '../utils/toast.js';
-import { API_BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
 
 const kycConfig = {
   verified: { dot: '#22c55e', label: 'KYC Verified', badgeClass: 'badge-green', avatarGrad: 'linear-gradient(135deg,#dcfce7,#bbf7d0)', avatarColor: '#15803d' },
@@ -27,11 +27,11 @@ export async function renderCustomerDetail(container, userId, onBack, onResubmit
   let user = null, swaps = [], battery = null;
   try {
     [user, swaps] = await Promise.all([
-      fetch(`${API_BASE}/users/${userId}`).then(r => r.ok ? r.json() : null),
-      fetch(`${API_BASE}/swaps?userId=${userId}`).then(r => r.json()),
+      apiFetch(`/users/${userId}`).then(r => r.ok ? r.json() : null),
+      apiFetch(`/swaps?userId=${userId}`).then(r => r.json()),
     ]);
     if (user?.batteryId) {
-      battery = await fetch(`${API_BASE}/batteries/${user.batteryId}`)
+      battery = await apiFetch(`/batteries/${user.batteryId}`)
         .then(r => r.ok ? r.json() : null).catch(() => null);
     }
   } catch {
@@ -179,7 +179,7 @@ export async function renderCustomerDetail(container, userId, onBack, onResubmit
     const reason = window.prompt(`Rejection reason for ${user.name}:`);
     if (!reason?.trim()) return;
     try {
-      await fetch(`${API_BASE}/users/${userId}`, {
+      await apiFetch(`/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kycStatus: 'rejected', rejectionReason: reason.trim() }),
@@ -227,8 +227,14 @@ function kycDocRow(iconName, label, masked, status) {
 }
 
 // ── Approval Sheet ─────────────────────────────────────────
-function showApprovalSheet(container, user, userId, agent, onBack, onResubmit) {
+async function showApprovalSheet(container, user, userId, agent, onBack, onResubmit) {
   document.getElementById('approval-overlay')?.remove();
+
+  // Fetch stock batteries immediately
+  let stockBats = [];
+  try {
+    stockBats = await apiFetch('/batteries?status=stock').then(r => r.json());
+  } catch { /* handled below */ }
 
   const ov = document.createElement('div');
   ov.id = 'approval-overlay';
@@ -242,7 +248,7 @@ function showApprovalSheet(container, user, userId, agent, onBack, onResubmit) {
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px 12px;border-bottom:1px solid #f1f5f9">
         <div>
           <p style="font-size:1rem;font-weight:800;color:#1e293b;letter-spacing:-0.02em">Approve Customer</p>
-          <p style="font-size:11px;color:#94a3b8;margin-top:2px">Complete both steps before confirming</p>
+          <p style="font-size:11px;color:#94a3b8;margin-top:2px">Complete all 3 steps before confirming</p>
         </div>
         <button id="apv-close" style="width:32px;height:32px;border-radius:50%;background:#f8fafc;border:1px solid #e2e8f0;cursor:pointer;display:flex;align-items:center;justify-content:center">
           <span class="material-symbols-outlined" style="font-size:18px;color:#64748b">close</span>
@@ -284,7 +290,7 @@ function showApprovalSheet(container, user, userId, agent, onBack, onResubmit) {
           <div id="ind-2" style="width:28px;height:28px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;font-weight:800;color:#64748b;transition:all 0.2s">2</div>
           <div>
             <p style="font-size:var(--font-sm);font-weight:700;color:#1e293b">Customer Photo</p>
-            <p style="font-size:11px;color:#94a3b8;margin-top:1px">Selfie of customer receiving the allocated battery</p>
+            <p style="font-size:11px;color:#94a3b8;margin-top:1px">Selfie of customer receiving the battery</p>
           </div>
         </div>
         <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none">
@@ -296,6 +302,37 @@ function showApprovalSheet(container, user, userId, agent, onBack, onResubmit) {
         <div id="photo-preview" style="display:none;margin-top:10px"></div>
       </div>
 
+      <!-- Step 3: Battery Selection -->
+      <div style="padding:16px 20px;border-bottom:1px solid #f1f5f9">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <div id="ind-3" style="width:28px;height:28px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;font-weight:800;color:#64748b;transition:all 0.2s">3</div>
+          <div>
+            <p style="font-size:var(--font-sm);font-weight:700;color:#1e293b">Select Battery</p>
+            <p style="font-size:11px;color:#94a3b8;margin-top:1px">Choose the battery you gave to the customer</p>
+          </div>
+        </div>
+        ${stockBats.length === 0
+          ? `<div style="padding:18px;text-align:center;border:2px dashed #fecaca;border-radius:12px;background:rgba(239,68,68,0.03)">
+              <span class="material-symbols-outlined" style="font-size:28px;color:#fca5a5;display:block;margin-bottom:6px">battery_unknown</span>
+              <p style="font-size:var(--font-xs);font-weight:700;color:var(--red)">No stock batteries available</p>
+              <p style="font-size:10px;color:#94a3b8;margin-top:3px">Contact admin to add batteries to stock</p>
+            </div>`
+          : `<div class="battery-pick-grid" id="battery-grid">
+              ${stockBats.map(b => `
+              <div class="battery-pick-card" data-battery-id="${b.id}">
+                <div class="battery-pick-id">${b.id}</div>
+                <div class="battery-pick-stat">
+                  <span class="material-symbols-outlined" style="color:var(--green)">battery_charging_full</span>
+                  SOC ${b.soc}%
+                </div>
+                <div class="battery-pick-stat" style="margin-top:4px">
+                  <span class="material-symbols-outlined" style="color:var(--amber)">monitor_heart</span>
+                  Health ${b.health}%
+                </div>
+              </div>`).join('')}
+            </div>`}
+      </div>
+
       <!-- Confirm -->
       <div style="padding:16px 20px 20px">
         <button id="apv-confirm"
@@ -303,14 +340,14 @@ function showApprovalSheet(container, user, userId, agent, onBack, onResubmit) {
           <span class="material-symbols-outlined" style="font-size:18px">verified</span>
           Confirm &amp; Approve Customer
         </button>
-        <p id="apv-hint" style="text-align:center;font-size:10px;color:#94a3b8;margin-top:8px">Upload payment proof &amp; customer photo to proceed</p>
+        <p id="apv-hint" style="text-align:center;font-size:10px;color:#94a3b8;margin-top:8px">Complete all 3 steps to proceed</p>
       </div>
     </div>
   `;
 
   document.body.appendChild(ov);
 
-  // Scope all queries to the overlay — avoids global ID conflicts
+  // Scope all queries to the overlay
   const confirmBtn  = ov.querySelector('#apv-confirm');
   const hintEl      = ov.querySelector('#apv-hint');
   const proofInput  = ov.querySelector('#proof-input');
@@ -321,12 +358,13 @@ function showApprovalSheet(container, user, userId, agent, onBack, onResubmit) {
   const photoPreview = ov.querySelector('#photo-preview');
   const ind1        = ov.querySelector('#ind-1');
   const ind2        = ov.querySelector('#ind-2');
+  const ind3        = ov.querySelector('#ind-3');
 
-  let proofFile = null, photoFile = null;
+  let proofFile = null, photoFile = null, selectedBatteryId = null;
   let processing = false;
 
-  function setReady(ready) {
-    // Use pointer-events instead of disabled attribute — avoids browser click-block quirks
+  function checkReady() {
+    const ready = !!(proofFile && photoFile && selectedBatteryId);
     confirmBtn.style.opacity       = ready ? '1'      : '0.35';
     confirmBtn.style.cursor        = ready ? 'pointer' : 'not-allowed';
     confirmBtn.style.pointerEvents = ready ? 'auto'   : 'none';
@@ -341,7 +379,7 @@ function showApprovalSheet(container, user, userId, agent, onBack, onResubmit) {
   }
 
   function showPreview(previewEl, zoneEl, file, ind) {
-    if (!previewEl || !zoneEl) { setReady(!!(proofFile && photoFile)); return; }
+    if (!previewEl || !zoneEl) { checkReady(); return; }
     zoneEl.style.borderColor = 'rgba(212,101,74,0.40)';
     zoneEl.style.background  = 'rgba(212,101,74,0.03)';
     markStep(ind);
@@ -369,7 +407,7 @@ function showApprovalSheet(container, user, userId, agent, onBack, onResubmit) {
           <span style="font-size:10px;color:#94a3b8">${(file.size/1024).toFixed(0)} KB</span>
         </div>`;
     }
-    setReady(!!(proofFile && photoFile));
+    checkReady();
   }
 
   proofZone?.addEventListener('click', () => proofInput?.click());
@@ -384,30 +422,42 @@ function showApprovalSheet(container, user, userId, agent, onBack, onResubmit) {
     if (photoFile) showPreview(photoPreview, photoZone, photoFile, ind2);
   });
 
+  // Battery selection
+  ov.querySelectorAll('.battery-pick-card').forEach(card => {
+    card.addEventListener('click', () => {
+      ov.querySelectorAll('.battery-pick-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedBatteryId = card.dataset.batteryId;
+      markStep(ind3);
+      checkReady();
+    });
+  });
+
   ov.querySelector('#apv-close')?.addEventListener('click', () => ov.remove());
   ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
 
   // Confirm & run API calls
   confirmBtn?.addEventListener('click', async () => {
-    if (processing || !(proofFile && photoFile)) return;
+    if (processing || !(proofFile && photoFile && selectedBatteryId)) return;
     processing = true;
-    setReady(false);
+    checkReady();
+    confirmBtn.style.opacity = '0.6';
+    confirmBtn.style.pointerEvents = 'none';
     confirmBtn.innerHTML = `<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Processing...`;
 
     try {
-      const stockBats = await fetch('${API_BASE}/batteries?status=stock').then(r => r.json());
-      if (!stockBats.length) {
-        showToast('No stock batteries available!', 'error');
+      const bat = stockBats.find(b => b.id === selectedBatteryId);
+      if (!bat) {
+        showToast('Selected battery not found - try again', 'error');
         processing = false;
         confirmBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px">verified</span> Confirm &amp; Approve Customer`;
-        setReady(true);
+        checkReady();
         return;
       }
-      const bat          = stockBats[0];
       const now          = new Date().toISOString();
       const depositTxnId = `TXN-DP-${String(Date.now()).slice(-6)}`;
 
-      await fetch(`${API_BASE}/users/${userId}`, {
+      await apiFetch(`/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -417,12 +467,12 @@ function showApprovalSheet(container, user, userId, agent, onBack, onResubmit) {
           customerPhoto: { name: photoFile.name, size: Math.round(photoFile.size / 1024) + ' KB', uploadedAt: now },
         }),
       });
-      await fetch(`${API_BASE}/batteries/${bat.id}`, {
+      await apiFetch(`/batteries/${bat.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'deployed', assignedTo: userId, stationId: null, stationName: null }),
       });
-      await fetch('${API_BASE}/transactions', {
+      await apiFetch('/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -431,8 +481,7 @@ function showApprovalSheet(container, user, userId, agent, onBack, onResubmit) {
           timestamp: now, description: 'Security deposit - battery onboarding',
         }),
       });
-      // Create swap/allocation record so it appears in all swap history views
-      await fetch('${API_BASE}/swaps', {
+      await apiFetch('/swaps', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -454,10 +503,10 @@ function showApprovalSheet(container, user, userId, agent, onBack, onResubmit) {
       showToast(`KYC approved! ${bat.id} allocated to ${user.name}`, 'success');
       renderCustomerDetail(container, userId, onBack, onResubmit, agent);
     } catch (err) {
-      showToast('Approval failed — ' + (err.message || 'check API connection'), 'error');
+      showToast('Approval failed - ' + (err.message || 'check API connection'), 'error');
       processing = false;
       confirmBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px">verified</span> Confirm &amp; Approve Customer`;
-      setReady(true);
+      checkReady();
     }
   });
 }

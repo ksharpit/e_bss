@@ -1,9 +1,10 @@
 // ============================================
-// User Detail Page — Live API
+// User Detail Page - Live API
 // ============================================
 import { icon } from '../components/icons.js';
 import { showToast } from '../utils/toast.js';
-import { API_BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
+import { fmtCur } from '../utils/helpers.js';
 
 const kycColors = {
   verified: { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0', dot: '#22c55e', label: 'Verified' },
@@ -12,12 +13,12 @@ const kycColors = {
 };
 
 function fmtDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return '-';
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function fmtTime(iso) {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const d = new Date(iso);
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) +
     ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
@@ -29,15 +30,15 @@ export async function renderUserDetail(container, userId) {
   let user, swaps = [];
   try {
     [user, swaps] = await Promise.all([
-      fetch(`${API_BASE}/users/${userId}`).then(r => r.ok ? r.json() : null),
-      fetch(`${API_BASE}/swaps?userId=${userId}`).then(r => r.json()),
+      apiFetch(`/users/${userId}`).then(r => r.ok ? r.json() : null),
+      apiFetch(`/swaps?userId=${userId}`).then(r => r.json()),
     ]);
   } catch {
     const { mockUsers } = await import('../data/mockData.js');
     user = mockUsers.find(u => u.id === userId);
     swaps = user?.swapHistory?.map(s => ({
       id: s.id, stationName: s.station, batteryIn: s.batteryId,
-      timestamp: s.date, transactionId: '—', amount: s.amount,
+      timestamp: s.date, transactionId: '-', amount: s.amount,
     })) || [];
   }
 
@@ -82,7 +83,7 @@ export async function renderUserDetail(container, userId) {
             </div>
           </div>
           <div style="display:flex;gap:8px;flex-shrink:0">
-            ${user.kycStatus === 'pending' ? `
+            ${(user.kycStatus === 'pending' || user.kycStatus === 'rejected') ? `
             <button id="ud-approve-btn" style="padding:8px 16px;border-radius:var(--radius-md);background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;font-size:var(--font-sm);font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">${icon('verified', '16px', 'color:#16a34a')} Approve KYC</button>
             <button id="ud-reject-btn" style="padding:8px 16px;border-radius:var(--radius-md);background:#fef2f2;color:#dc2626;border:1px solid #fecaca;font-size:var(--font-sm);font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">${icon('cancel', '16px', 'color:#dc2626')} Reject</button>
             ` : ''}
@@ -106,7 +107,7 @@ export async function renderUserDetail(container, userId) {
           </h3>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             ${statBox('swap_horiz',           'Total Swaps',     swapOnlyCount,                              '#D4654A')}
-            ${statBox('currency_rupee',        'Total Spent',     totalSwapSpent > 0 ? '₹' + totalSwapSpent.toLocaleString('en-IN') : '—', '#16a34a')}
+            ${statBox('currency_rupee',        'Total Spent',     totalSwapSpent > 0 ? fmtCur(totalSwapSpent) : '-', '#16a34a')}
             ${statBox('battery_charging_full', 'Linked Battery',  user.batteryId || 'Not assigned',         '#D4654A')}
             ${statBox('ev_station',            'Onboarded',       user.onboardedAt ? fmtDate(user.onboardedAt) : 'Not yet', '#64748b')}
           </div>
@@ -125,17 +126,17 @@ export async function renderUserDetail(container, userId) {
           <div style="margin-top:1rem;padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">
             <div style="display:flex;align-items:center;gap:8px">
               ${icon('verified', '16px', 'color:#16a34a')}
-              <span style="font-size:var(--font-sm);color:#16a34a;font-weight:600">All documents verified · Deposit TXN: ${user.depositTxnId || '—'}</span>
+              <span style="font-size:var(--font-sm);color:#16a34a;font-weight:600">All documents verified · Deposit TXN: ${user.depositTxnId || '-'}</span>
             </div>
             <span style="font-size:var(--font-xs);color:#16a34a;font-weight:500;white-space:nowrap">${icon('schedule', '13px', 'color:#16a34a;vertical-align:middle')} ${fmtTime(user.onboardedAt)}</span>
           </div>` : user.kycStatus === 'pending' ? `
           <div style="margin-top:1rem;padding:10px 14px;background:#fefce8;border:1px solid #fde68a;border-radius:10px;display:flex;align-items:center;gap:8px">
             ${icon('pending', '16px', 'color:#a16207')}
-            <span style="font-size:var(--font-sm);color:#a16207;font-weight:600">Documents uploaded — awaiting provider review</span>
+            <span style="font-size:var(--font-sm);color:#a16207;font-weight:600">Documents uploaded - awaiting provider review</span>
           </div>` : `
           <div style="margin-top:1rem;padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;display:flex;align-items:center;gap:8px">
             ${icon('cancel', '16px', 'color:#dc2626')}
-            <span style="font-size:var(--font-sm);color:#dc2626;font-weight:600">KYC rejected — user needs to resubmit</span>
+            <span style="font-size:var(--font-sm);color:#dc2626;font-weight:600">KYC rejected - user needs to resubmit</span>
           </div>`}
         </div>
       </div>
@@ -173,11 +174,11 @@ export async function renderUserDetail(container, userId) {
             <div style="flex:1;display:flex;align-items:center;gap:6px;justify-content:center">
               ${isAlloc ? `
               <span style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em">Received</span>
-              <span style="font-family:monospace;font-size:var(--font-sm);font-weight:700;color:#16a34a;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.15);padding:3px 10px;border-radius:6px">${s.batteryIn || '—'}</span>
+              <span style="font-family:monospace;font-size:var(--font-sm);font-weight:700;color:#16a34a;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.15);padding:3px 10px;border-radius:6px">${s.batteryIn || '-'}</span>
               ` : `
               ${s.batteryOut ? `<span style="font-family:monospace;font-size:var(--font-sm);font-weight:600;color:var(--text-muted);background:var(--bg-table-head);padding:3px 10px;border-radius:6px;border:1px solid var(--border-color)">${s.batteryOut}</span>
               <span class="material-symbols-outlined" style="font-size:14px;color:#D4654A">arrow_forward</span>` : ''}
-              <span style="font-family:monospace;font-size:var(--font-sm);font-weight:700;color:#D4654A;background:var(--accent-10);border:1px solid rgba(212,101,74,0.15);padding:3px 10px;border-radius:6px">${s.batteryIn || '—'}</span>
+              <span style="font-family:monospace;font-size:var(--font-sm);font-weight:700;color:#D4654A;background:var(--accent-10);border:1px solid rgba(212,101,74,0.15);padding:3px 10px;border-radius:6px">${s.batteryIn || '-'}</span>
               `}
             </div>
             <!-- Date & Time -->
@@ -188,7 +189,7 @@ export async function renderUserDetail(container, userId) {
             <div style="text-align:right;min-width:64px;flex-shrink:0">
               ${isAlloc
                 ? `<span style="font-size:var(--font-xs);font-weight:700;color:#16a34a;background:rgba(34,197,94,0.08);padding:3px 10px;border-radius:var(--radius-full);border:1px solid rgba(34,197,94,0.12)">Free</span>`
-                : `<span style="font-size:var(--font-md);font-weight:800;color:var(--text-primary)">₹${s.amount}</span>`
+                : `<span style="font-size:var(--font-md);font-weight:800;color:var(--text-primary)">${fmtCur(s.amount || 0)}</span>`
               }
             </div>
           </div>`;
@@ -205,15 +206,15 @@ export async function renderUserDetail(container, userId) {
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem">
           <div style="padding:1rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px">
             <p style="font-size:var(--font-xs);font-weight:700;color:#86efac;text-transform:uppercase;margin-bottom:4px">Swap Payments</p>
-            <p style="font-size:1.375rem;font-weight:800;color:#16a34a">${totalSwapSpent > 0 ? '₹' + totalSwapSpent.toLocaleString('en-IN') : '—'}</p>
+            <p style="font-size:1.375rem;font-weight:800;color:#16a34a">${totalSwapSpent > 0 ? fmtCur(totalSwapSpent) : '-'}</p>
           </div>
           <div style="padding:1rem;background:rgba(212,101,74,0.07);border:1px solid rgba(212,101,74,0.18);border-radius:12px">
             <p style="font-size:var(--font-xs);font-weight:700;color:#D4654A;text-transform:uppercase;margin-bottom:4px;opacity:0.7">Security Deposit</p>
-            <p style="font-size:1.375rem;font-weight:800;color:#D4654A">${user.depositPaid ? '₹3,000' : '—'}</p>
+            <p style="font-size:1.375rem;font-weight:800;color:#D4654A">${user.depositPaid ? fmtCur(3000) : '-'}</p>
           </div>
           <div style="padding:1rem;background:rgba(212,101,74,0.07);border:1px solid rgba(212,101,74,0.18);border-radius:12px">
             <p style="font-size:var(--font-xs);font-weight:700;color:#D4654A;text-transform:uppercase;margin-bottom:4px;opacity:0.7">Rate / Swap</p>
-            <p style="font-size:1.375rem;font-weight:800;color:#D4654A">₹65</p>
+            <p style="font-size:1.375rem;font-weight:800;color:#D4654A">${fmtCur(65)}</p>
           </div>
           <div style="padding:1rem;background:#f8fafc;border:1px solid #f1f5f9;border-radius:12px">
             <p style="font-size:var(--font-xs);font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px">Last Swap</p>
@@ -224,7 +225,7 @@ export async function renderUserDetail(container, userId) {
 
       <footer class="app-footer" style="margin-top:2rem">
         ${icon('bolt', '16px', 'vertical-align:middle;margin-right:6px;color:#9ca3af')}
-        Electica Enterprise Dashboard © 2024
+        Electica Enterprise Dashboard © 2026
       </footer>
     </div>
   `;
@@ -242,7 +243,7 @@ export async function renderUserDetail(container, userId) {
 
     try {
       // 1. Find an available stock battery
-      const stockBats = await fetch(`${API_BASE}/batteries?status=stock`).then(r => r.json());
+      const stockBats = await apiFetch('/batteries?status=stock').then(r => r.json());
       if (!stockBats.length) {
         showToast('No stock batteries available for allocation!', 'error');
         if (btn) { btn.disabled = false; btn.innerHTML = `${icon('verified', '16px', 'color:#16a34a')} Approve KYC`; }
@@ -253,7 +254,7 @@ export async function renderUserDetail(container, userId) {
       const depositTxnId = `TXN-DP-${String(Date.now()).slice(-6)}`;
 
       // 2. Mark user as verified + record deposit + assign battery
-      await fetch(`${API_BASE}/users/${userId}`, {
+      await apiFetch(`/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -266,7 +267,7 @@ export async function renderUserDetail(container, userId) {
       });
 
       // 3. Mark battery as deployed, assigned to this user
-      await fetch(`${API_BASE}/batteries/${battery.id}`, {
+      await apiFetch(`/batteries/${battery.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -278,7 +279,7 @@ export async function renderUserDetail(container, userId) {
       });
 
       // 4. Record the security deposit transaction
-      await fetch(`${API_BASE}/transactions`, {
+      await apiFetch('/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -289,12 +290,12 @@ export async function renderUserDetail(container, userId) {
           mode: 'Cash',
           status: 'completed',
           timestamp: now,
-          description: 'Security deposit — battery onboarding',
+          description: 'Security deposit - battery onboarding',
         }),
       });
 
       // 5. Create allocation swap record visible everywhere
-      await fetch(`${API_BASE}/swaps`, {
+      await apiFetch('/swaps', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -315,7 +316,7 @@ export async function renderUserDetail(container, userId) {
       showToast(`KYC approved! ${battery.id} allocated to ${user.name}`, 'success');
       renderUserDetail(container, userId);
     } catch {
-      showToast('Approval failed — check API connection', 'error');
+      showToast('Approval failed - check API connection', 'error');
       if (btn) { btn.disabled = false; btn.innerHTML = `${icon('verified', '16px', 'color:#16a34a')} Approve KYC`; }
     }
   }
@@ -325,7 +326,7 @@ export async function renderUserDetail(container, userId) {
     if (!reason?.trim()) return;
 
     try {
-      await fetch(`${API_BASE}/users/${userId}`, {
+      await apiFetch(`/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kycStatus: 'rejected', rejectionReason: reason.trim() }),
@@ -333,7 +334,7 @@ export async function renderUserDetail(container, userId) {
       showToast(`KYC rejected for ${user.name}`, 'warning');
       renderUserDetail(container, userId);
     } catch {
-      showToast('Action failed — check API connection', 'error');
+      showToast('Action failed - check API connection', 'error');
     }
   }
 }
@@ -362,7 +363,7 @@ function kycDoc(docName, maskedNumber, status, iconName) {
       <span class="material-symbols-outlined" style="font-size:20px;color:#D4654A;font-variation-settings:'FILL' 1">${iconName}</span>
       <div>
         <p style="font-size:var(--font-sm);font-weight:600;color:#1e293b">${docName}</p>
-        <p style="font-size:var(--font-xs);font-family:monospace;color:#94a3b8">${maskedNumber || '—'}</p>
+        <p style="font-size:var(--font-xs);font-family:monospace;color:#94a3b8">${maskedNumber || '-'}</p>
       </div>
     </div>
     <span style="padding:3px 10px;border-radius:var(--radius-full);font-size:10px;font-weight:700;${s}">${label}</span>

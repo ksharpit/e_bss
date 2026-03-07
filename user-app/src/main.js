@@ -9,7 +9,7 @@ import { renderProfile }  from './pages/profile.js';
 import { renderAuth }     from './pages/auth.js';
 import { renderScan }     from './pages/swap.js';
 import { showToast }      from './utils/toast.js';
-import { API_BASE }       from './config.js';
+import { apiFetch, clearToken } from './utils/apiFetch.js';
 
 const AUTH_KEY  = 'electica_auth';
 let currentTab  = 'home';
@@ -84,6 +84,7 @@ function showAuthScreen() {
 // ── Logout ────────────────────────────────────────────────
 function logout() {
   clearAuth();
+  clearToken();
   USER_ID    = null;
   currentTab = 'home';
   showAuthScreen();
@@ -155,7 +156,7 @@ function renderPendingWrapper(userId) {
     btn.innerHTML = `<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Checking...`;
 
     try {
-      const user = await fetch(`${API_BASE}/users/${userId}`).then(r => r.ok ? r.json() : null);
+      const user = await apiFetch(`/users/${userId}`).then(r => r.ok ? r.json() : null);
       if (!user) throw new Error('User not found');
 
       if (user.kycStatus === 'verified') {
@@ -327,12 +328,12 @@ function renderMainApp() {
         const cat = document.getElementById('ticket-category')?.value;
         if (!desc) { showToast('Please describe your issue', 'error'); return; }
         try {
-          await fetch(`${API_BASE}/tickets`, {
+          await apiFetch('/tickets', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: 'TKT-' + Date.now(), userId: USER_ID, type: 'ticket', category: cat, description: desc, status: 'open', timestamp: new Date().toISOString() })
           });
           closeSheet();
-          showToast('Ticket submitted — our team will reach out within 2 hours', 'success');
+          showToast('Ticket submitted - our team will reach out within 2 hours', 'success');
         } catch { showToast('Failed to submit ticket', 'error'); }
       });
     });
@@ -370,12 +371,12 @@ function renderMainApp() {
         const topic = document.getElementById('query-topic')?.value;
         if (!desc) { showToast('Please type your question', 'error'); return; }
         try {
-          await fetch(`${API_BASE}/tickets`, {
+          await apiFetch('/tickets', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: 'QRY-' + Date.now(), userId: USER_ID, type: 'query', category: topic, description: desc, status: 'open', timestamp: new Date().toISOString() })
           });
           closeSheet();
-          showToast('Query submitted — you will receive a response via SMS shortly', 'success');
+          showToast('Query submitted - you will receive a response via SMS shortly', 'success');
         } catch { showToast('Failed to submit query', 'error'); }
       });
     });
@@ -389,7 +390,7 @@ function renderMainApp() {
     // ── Email Us ──
     document.getElementById('help-email')?.addEventListener('click', () => {
       avatarMenu.style.display = 'none';
-      window.location.href = 'mailto:support@electica.in?subject=' + encodeURIComponent('Support Request — Customer ' + USER_ID) + '&body=' + encodeURIComponent('Hi Electica Support,\n\nCustomer ID: ' + USER_ID + '\n\nPlease describe your issue below:\n\n');
+      window.location.href = 'mailto:support@electica.in?subject=' + encodeURIComponent('Support Request - Customer ' + USER_ID) + '&body=' + encodeURIComponent('Hi Electica Support,\n\nCustomer ID: ' + USER_ID + '\n\nPlease describe your issue below:\n\n');
     });
 
     // ── FAQs ──

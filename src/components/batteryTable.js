@@ -38,13 +38,13 @@ export function renderBatteryTable(batteries, filters = {}) {
     // Show where the battery is: with user or at station
     let location;
     if (b.status === 'deployed') {
-      const name = b._userName || b.assignedTo || '—';
+      const name = b._userName || b.assignedTo || '-';
       const phone = b._userPhone ? ` <span style="color:#94a3b8;font-size:10px">${b._userPhone}</span>` : '';
       location = `<span style="font-size:var(--font-xs);color:#8b5cf6;font-weight:600">${name}</span>${phone}`;
     } else if (b.status === 'stock') {
       location = `<span style="font-size:var(--font-xs);color:#64748b">Warehouse</span>`;
     } else {
-      const stName = b._stationName || b.stationName || b.stationId || '—';
+      const stName = b._stationName || b.stationName || b.stationId || '-';
       location = `<span style="font-size:var(--font-xs);color:var(--text-primary)">${stName}</span>`;
     }
 

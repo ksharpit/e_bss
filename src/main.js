@@ -1,8 +1,8 @@
 // ============================================
-// BSS Dashboard — Main Entry Point
+// BSS Dashboard - Main Entry Point
 // ============================================
 
-// ─── Styles ───
+// --- Styles ---
 import './styles/variables.css';
 import './styles/reset.css';
 import './styles/layout.css';
@@ -10,11 +10,15 @@ import './styles/components.css';
 import './styles/charts.css';
 import './styles/pages.css';
 
-// ─── Components ───
+// --- Auth ---
+import { getToken } from './utils/apiFetch.js';
+import { renderLogin } from './pages/login.js';
+
+// --- Components ---
 import { renderSidebar } from './components/sidebar.js';
 import { renderHeader } from './components/header.js';
 
-// ─── Pages ───
+// --- Pages ---
 import { renderDashboard } from './pages/dashboard.js';
 import { renderStationDetail } from './pages/stationDetail.js';
 import { renderStations } from './pages/stations.js';
@@ -28,21 +32,29 @@ import { renderSupport } from './pages/support.js';
 import { renderUsers } from './pages/users.js';
 import { renderUserDetail } from './pages/userDetail.js';
 
-// ─── Router ───
+// --- Router ---
 import { registerRoute, initRouter } from './utils/router.js';
 
-// ─── Services ───
+// --- Services ---
 import { startChargingSimulator } from './utils/chargingSimulator.js';
 
-// ─── Initialize App ───
-function init() {
+// --- App shell (sidebar + header + routes) ---
+function initApp() {
+  // Restore the app shell HTML structure
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main-wrapper">
+      <header class="header" id="header"></header>
+      <main class="main-content" id="main-content"></main>
+    </div>
+  `;
+
   const mainContent = document.getElementById('main-content');
 
-  // Render shell components
   renderSidebar();
   renderHeader();
 
-  // Register routes (pass container to each page renderer)
   registerRoute('#dashboard', () => renderDashboard(mainContent));
   registerRoute('#stations', () => renderStations(mainContent));
   registerRoute('#station', (stationId) => renderStationDetail(mainContent, stationId));
@@ -56,16 +68,26 @@ function init() {
   registerRoute('#users', () => renderUsers(mainContent));
   registerRoute('#user-detail', (userId) => renderUserDetail(mainContent, userId));
 
-  // Start router
   initRouter('#dashboard');
-
-  // Start background charging simulation
   startChargingSimulator();
+}
+
+// --- Auth gate ---
+function boot() {
+  const token = getToken();
+  if (!token) {
+    renderLogin(() => {
+      window.location.hash = '#dashboard';
+      initApp();
+    });
+  } else {
+    initApp();
+  }
 }
 
 // Boot when DOM ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', boot);
 } else {
-  init();
+  boot();
 }

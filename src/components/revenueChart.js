@@ -1,7 +1,8 @@
 // ============================================
-// Revenue Charts (Widget Redesign — Coral Palette)
+// Revenue Charts (Widget Redesign - Coral Palette)
 // ============================================
 import { Chart, registerables } from 'chart.js';
+import { curSymbol, formatRevM } from '../utils/helpers.js';
 Chart.register(...registerables);
 
 let revenueChartInstance = null;
@@ -45,7 +46,7 @@ export function renderRevenueLineChart(canvasId, revenueDaily) {
         data: {
             labels: revenueDaily.map(d => d.date),
             datasets: [{
-                label: 'Daily Revenue (₹)',
+                label: 'Daily Revenue',
                 data: revenueDaily.map(d => d.total),
                 borderColor: '#D4654A',
                 backgroundColor: gradient,
@@ -74,7 +75,7 @@ export function renderRevenueLineChart(canvasId, revenueDaily) {
                         if (!dp) return;
                         el.innerHTML = `
                             <div class="rev-tt-month">${dp.label}</div>
-                            <div class="rev-tt-value">₹${(dp.raw / 1000).toFixed(1)}<span class="rev-tt-unit">K</span></div>
+                            <div class="rev-tt-value">${curSymbol()}${(dp.raw / 1000).toFixed(1)}<span class="rev-tt-unit">K</span></div>
                             <div class="rev-tt-sub">Daily Revenue</div>
                         `;
                         positionTooltip(el, chart, tooltip);
@@ -90,7 +91,7 @@ export function renderRevenueLineChart(canvasId, revenueDaily) {
                     grid: { color: '#f0efec', drawBorder: false },
                     ticks: {
                         color: '#9ca3af', font: { size: 10, weight: '500' },
-                        callback: v => '₹' + (v / 1000).toFixed(0) + 'K',
+                        callback: v => curSymbol() + (v / 1000).toFixed(0) + 'K',
                     },
                 },
             },
@@ -196,7 +197,7 @@ export function renderStationBarChart(canvasId, revenueByStation) {
         data: {
             labels: revenueByStation.map(s => s.stationId),
             datasets: [{
-                label: 'Revenue (₹)',
+                label: 'Revenue',
                 data: revenueByStation.map(s => s.revenue),
                 backgroundColor: 'rgba(212, 101, 74, 0.15)',
                 borderColor: '#D4654A',
@@ -219,7 +220,7 @@ export function renderStationBarChart(canvasId, revenueByStation) {
                         if (!dp) return;
                         el.innerHTML = `
                             <div class="rev-tt-month">${dp.label}</div>
-                            <div class="rev-tt-value">₹${(dp.raw / 1000).toFixed(1)}<span class="rev-tt-unit">K</span></div>
+                            <div class="rev-tt-value">${curSymbol()}${(dp.raw / 1000).toFixed(1)}<span class="rev-tt-unit">K</span></div>
                             <div class="rev-tt-sub">Monthly Revenue</div>
                         `;
                         positionTooltip(el, chart, tooltip);
@@ -235,7 +236,7 @@ export function renderStationBarChart(canvasId, revenueByStation) {
                     grid: { color: '#f0efec', drawBorder: false },
                     ticks: {
                         color: '#9ca3af', font: { size: 10, weight: '500' },
-                        callback: v => '₹' + (v / 1000).toFixed(0) + 'K',
+                        callback: v => curSymbol() + (v / 1000).toFixed(0) + 'K',
                     },
                 },
             },
@@ -379,7 +380,7 @@ export function renderConcentricChart(canvasId, stations) {
                         if (!station) { el.style.opacity = '0'; return; }
                         el.innerHTML = `
                             <div class="rev-tt-month">${station.name}</div>
-                            <div class="rev-tt-value">₹${((station._revToday || 0) / 1000).toFixed(1)}<span class="rev-tt-unit">K</span></div>
+                            <div class="rev-tt-value">${curSymbol()}${((station._revToday || 0) / 1000).toFixed(1)}<span class="rev-tt-unit">K</span></div>
                             <div class="rev-tt-sub">Revenue Today · ${station.id}</div>
                         `;
                         positionTooltip(el, chart, tooltip);

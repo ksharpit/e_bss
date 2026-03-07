@@ -1,9 +1,10 @@
 // ============================================
-// Battery Analytics Detail Page (Electica — Live API)
+// Battery Analytics Detail Page (Electica - Live API)
 // High-quality card design, all data from API
 // ============================================
 import { icon } from '../components/icons.js';
-import { API_BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
+import { fmtCur } from '../utils/helpers.js';
 import { Chart } from 'chart.js';
 
 let sohChartInstance = null;
@@ -16,10 +17,10 @@ export async function renderBatteryDetail(container, batteryId) {
 
   try {
     [battery, users, swaps, stations] = await Promise.all([
-      fetch(`${API_BASE}/batteries/${bid}`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
-      fetch(`${API_BASE}/users`).then(r => r.json()),
-      fetch(`${API_BASE}/swaps`).then(r => r.json()),
-      fetch(`${API_BASE}/stations`).then(r => r.json()),
+      apiFetch(`/batteries/${bid}`).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+      apiFetch('/users').then(r => r.json()),
+      apiFetch('/swaps').then(r => r.json()),
+      apiFetch('/stations').then(r => r.json()),
     ]);
   } catch {
     container.innerHTML = `<div style="padding:3rem;text-align:center;color:#ef4444;font-size:var(--font-md)">Battery "${bid}" not found or API unavailable.</div>`;
@@ -47,7 +48,7 @@ export async function renderBatteryDetail(container, batteryId) {
     locationIcon = 'person';
     locationColor = '#D4654A';
   } else if (battery.stationId && stationMap[battery.stationId]) {
-    locationLabel = stationMap[battery.stationId].name + ' — ' + stationMap[battery.stationId].location;
+    locationLabel = stationMap[battery.stationId].name + ' - ' + stationMap[battery.stationId].location;
     locationIcon = 'ev_station';
     locationColor = '#D4654A';
   } else if (battery.stationName) {
@@ -60,7 +61,7 @@ export async function renderBatteryDetail(container, batteryId) {
     locationColor = '#94a3b8';
   }
 
-  // Status badge styling — unified coral theme
+  // Status badge styling - unified coral theme
   const statusMap = {
     'deployed': { label: 'DEPLOYED', bg: 'rgba(212,101,74,0.10)', color: '#D4654A', border: 'rgba(212,101,74,0.25)' },
     'available': { label: 'AVAILABLE', bg: 'rgba(212,101,74,0.07)', color: '#c75a3f', border: 'rgba(212,101,74,0.18)' },
@@ -73,15 +74,15 @@ export async function renderBatteryDetail(container, batteryId) {
   };
   const st = statusMap[battery.status] || { label: battery.status.toUpperCase(), bg: 'rgba(212,101,74,0.07)', color: '#D4654A', border: 'rgba(212,101,74,0.18)' };
 
-  // SOC color — coral gradient: high=coral, mid=warm coral, low=deep coral
+  // SOC color - coral gradient: high=coral, mid=warm coral, low=deep coral
   const socColor = battery.soc >= 70 ? '#D4654A' : battery.soc >= 30 ? '#c75a3f' : '#b43c28';
   const socLabel = battery.soc >= 70 ? 'Good' : battery.soc >= 30 ? 'Medium' : 'Low';
 
-  // Health color — coral gradient
+  // Health color - coral gradient
   const healthColor = battery.health >= 90 ? '#D4654A' : battery.health >= 70 ? '#c75a3f' : '#b43c28';
   const healthLabel = battery.health >= 90 ? 'Excellent' : battery.health >= 70 ? 'Good' : 'Degraded';
 
-  // Temperature — coral gradient
+  // Temperature - coral gradient
   const temp = battery.temperature || 'N/A';
   const tempVal = typeof temp === 'number' ? temp : 0;
   const tempColor = tempVal <= 35 ? '#D4654A' : tempVal <= 45 ? '#c75a3f' : '#b43c28';
@@ -181,7 +182,7 @@ export async function renderBatteryDetail(container, batteryId) {
             <span class="material-symbols-outlined" style="font-size:22px;color:#D4654A">payments</span>
           </div>
           <p style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Total Revenue</p>
-          <h3 style="font-size:1.5rem;font-weight:800;color:#1e293b;margin-bottom:4px">₹${totalRevenue.toLocaleString('en-IN')}</h3>
+          <h3 style="font-size:1.5rem;font-weight:800;color:#1e293b;margin-bottom:4px">${fmtCur(totalRevenue)}</h3>
           <span style="padding:3px 10px;border-radius:var(--radius-full);font-size:9px;font-weight:700;background:rgba(212,101,74,0.08);color:#D4654A;border:1px solid rgba(212,101,74,0.2)">${batterySwaps.length} SWAPS</span>
           <div style="margin-top:10px;width:100%;height:6px;background:#f1f5f9;border-radius:var(--radius-full);overflow:hidden">
             <div style="width:${Math.min(totalRevenue / 5000 * 100, 100)}%;height:100%;background:#D4654A;border-radius:var(--radius-full);transition:width 0.5s"></div>
@@ -223,7 +224,7 @@ export async function renderBatteryDetail(container, batteryId) {
           </div>
           <div style="text-align:center;padding:6px 14px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0">
             <span style="font-size:9px;font-weight:700;color:#94a3b8;display:block">SPENT</span>
-            <span style="font-size:var(--font-sm);font-weight:700;color:#D4654A">₹${(userMap[battery.assignedTo].totalSpent || 0).toLocaleString('en-IN')}</span>
+            <span style="font-size:var(--font-sm);font-weight:700;color:#D4654A">${fmtCur(userMap[battery.assignedTo].totalSpent || 0)}</span>
           </div>
         </div>
         <button class="btn btn-outline" style="padding:8px 14px;font-size:var(--font-sm);flex-shrink:0" onclick="location.hash='#user-detail/${battery.assignedTo}'">View User</button>
@@ -282,7 +283,7 @@ export async function renderBatteryDetail(container, batteryId) {
                           <span class="material-symbols-outlined" style="font-size:12px">${dirIcon}</span> ${direction}
                         </span>
                       </td>
-                      <td style="padding:12px;text-align:right;font-weight:700;color:#1e293b;font-size:var(--font-sm)">₹${s.amount || 0}</td>
+                      <td style="padding:12px;text-align:right;font-weight:700;color:#1e293b;font-size:var(--font-sm)">${fmtCur(s.amount || 0)}</td>
                       <td style="padding:12px;text-align:center">
                         <span style="padding:3px 10px;border-radius:var(--radius-full);font-size:var(--font-xs);font-weight:700;background:${s.status === 'completed' ? 'rgba(212,101,74,0.08)' : 'rgba(212,101,74,0.05)'};color:${s.status === 'completed' ? '#D4654A' : '#a8503a'};border:1px solid ${s.status === 'completed' ? 'rgba(212,101,74,0.20)' : 'rgba(212,101,74,0.12)'}">${(s.status || 'completed').toUpperCase()}</span>
                       </td>
@@ -293,7 +294,7 @@ export async function renderBatteryDetail(container, batteryId) {
             </table>
           </div>
           <div style="padding:12px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #f1f5f9;margin-top:4px">
-            <span style="font-size:var(--font-xs);color:#94a3b8">Showing ${batterySwaps.length} of ${batterySwaps.length} swaps · Total: ₹${totalRevenue.toLocaleString('en-IN')}</span>
+            <span style="font-size:var(--font-xs);color:#94a3b8">Showing ${batterySwaps.length} of ${batterySwaps.length} swaps · Total: ${fmtCur(totalRevenue)}</span>
           </div>
         `}
       </div>
@@ -388,7 +389,7 @@ export async function renderBatteryDetail(container, batteryId) {
               const val = sohValues[i];
               const prev = i > 0 ? sohValues[i - 1] : val;
               const delta = val - prev;
-              const arrow = delta === 0 ? '—' : (delta > 0 ? '▲' : '▼');
+              const arrow = delta === 0 ? '-' : (delta > 0 ? '▲' : '▼');
               const trendColor = delta >= 0 ? '#D4654A' : '#b43c28';
 
               el.innerHTML = `

@@ -1,9 +1,9 @@
 // ============================================
-// Battery Inventory Page (Electica) — Flex-Row Design
+// Battery Inventory Page (Electica) - Flex-Row Design
 // Matches Users page layout pattern
 // ============================================
 import { icon, ICONS } from '../components/icons.js';
-import { API_BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
 import { downloadCsv } from '../utils/csv.js';
 
 /* ── Status config ── */
@@ -33,13 +33,13 @@ function rowHTML(b) {
   // Location display
   let locationMain, locationSub;
   if (b.status === 'deployed') {
-    locationMain = b._userName || b.assignedTo || '—';
+    locationMain = b._userName || b.assignedTo || '-';
     locationSub = b._userPhone || '';
   } else if (b.status === 'stock') {
     locationMain = 'Warehouse';
     locationSub = 'Unallocated';
   } else {
-    locationMain = b._stationName || b.stationName || '—';
+    locationMain = b._stationName || b.stationName || '-';
     locationSub = b.stationId || '';
   }
 
@@ -134,10 +134,10 @@ export async function renderInventory(container) {
   let batteries = [], users = [], swaps = [], stations = [];
   try {
     [batteries, users, swaps, stations] = await Promise.all([
-      fetch(`${API_BASE}/batteries`).then(r => r.json()),
-      fetch(`${API_BASE}/users`).then(r => r.json()),
-      fetch(`${API_BASE}/swaps`).then(r => r.json()),
-      fetch(`${API_BASE}/stations`).then(r => r.json()),
+      apiFetch('/batteries').then(r => r.json()),
+      apiFetch('/users').then(r => r.json()),
+      apiFetch('/swaps').then(r => r.json()),
+      apiFetch('/stations').then(r => r.json()),
     ]);
   } catch {
     const { mockBatteries } = await import('../data/mockData.js');

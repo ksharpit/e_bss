@@ -1,5 +1,5 @@
 // ============================================
-// BSS Dashboard — Mock Data
+// BSS Dashboard - Mock Data
 // ============================================
 
 // Helper: random number in range
@@ -302,7 +302,7 @@ export const mockUsers = indianNames.map((u, i) => {
     station: station.name,
     swapCount,
     totalSpent: swapCount * 65,
-    lastSwap: swapHistory[0]?.date || '—',
+    lastSwap: swapHistory[0]?.date || '-',
     kycStatus: kycStatuses[i % kycStatuses.length],
     aadhaar: `XXXX-XXXX-${rand(1000, 9999)}`,
     pan: `XXXXX${rand(1000, 9999)}X`,

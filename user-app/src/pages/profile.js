@@ -2,7 +2,7 @@
 // Profile - User Account
 // ============================================
 import { showToast } from '../utils/toast.js';
-import { API_BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
 
 function fmtDate(iso) {
   if (!iso) return '-';
@@ -17,9 +17,9 @@ export async function renderProfile(container, userId, onLogout, onLoaded) {
 
   let user = null, battery = null;
   try {
-    user = await fetch(`${API_BASE}/users/${userId}`).then(r => r.ok ? r.json() : null);
+    user = await apiFetch(`/users/${userId}`).then(r => r.ok ? r.json() : null);
     if (user?.batteryId) {
-      battery = await fetch(`${API_BASE}/batteries/${user.batteryId}`)
+      battery = await apiFetch(`/batteries/${user.batteryId}`)
         .then(r => r.ok ? r.json() : null).catch(() => null);
     }
   } catch {
@@ -123,7 +123,7 @@ export async function renderProfile(container, userId, onLogout, onLoaded) {
 
   document.getElementById('api-check-row')?.addEventListener('click', async () => {
     try {
-      const r = await fetch(`${API_BASE}/users?_limit=1`);
+      const r = await apiFetch('/users?_limit=1');
       if (r.ok) showToast('API connected - json-server on :3001', 'success');
     } catch {
       showToast('Cannot reach API - is json-server running?', 'error');

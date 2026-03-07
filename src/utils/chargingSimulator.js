@@ -1,11 +1,10 @@
 // ============================================
-// Charging Simulator — Background Service
+// Charging Simulator - Background Service
 // ============================================
 // Batteries with status "charging" will reach 100% SOC in 1.5 hours,
 // then automatically flip to "available".
 
-import { API_BASE } from '../config.js';
-const API = API_BASE;
+import { apiFetch } from './apiFetch.js';
 const FULL_CHARGE_MS = 1.5 * 60 * 60 * 1000; // 1.5 hours in ms
 const TICK_INTERVAL  = 30_000;                 // update every 30 seconds
 
@@ -14,7 +13,7 @@ let timer = null;
 async function tick() {
   let batteries;
   try {
-    batteries = await fetch(`${API}/batteries?status=charging`).then(r => r.json());
+    batteries = await apiFetch('/batteries?status=charging').then(r => r.json());
   } catch { return; }
 
   if (!batteries.length) return;
@@ -43,7 +42,7 @@ async function tick() {
 
 async function patch(id, data) {
   try {
-    await fetch(`${API}/batteries/${id}`, {
+    await apiFetch(`/batteries/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),

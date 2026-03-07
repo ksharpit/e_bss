@@ -1,8 +1,11 @@
 // ============================================
-// Users / Customers Page — Live API
+// Users / Customers Page - Live API
 // ============================================
 import { icon } from '../components/icons.js';
-import { API_BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
+import { downloadCsv } from '../utils/csv.js';
+import { showToast } from '../utils/toast.js';
+import { fmtCur, formatRevM } from '../utils/helpers.js';
 
 const kycColors = {
   verified: { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0', dot: '#22c55e', label: 'Verified' },
@@ -12,7 +15,7 @@ const kycColors = {
 
 function rowHTML(u) {
   const kyc = kycColors[u.kycStatus] || kycColors.pending;
-  const spentStr = u.totalSpent > 0 ? '₹' + u.totalSpent.toLocaleString('en-IN') : '—';
+  const spentStr = u.totalSpent > 0 ? fmtCur(u.totalSpent) : '-';
   return `
   <div class="user-row" data-user-id="${u.id}"
        style="display:flex;align-items:center;gap:16px;padding:14px 1.5rem;border-bottom:1px solid var(--border-light);cursor:pointer;transition:all 0.15s"
@@ -35,7 +38,7 @@ function rowHTML(u) {
     <div style="min-width:90px">
       ${u.batteryId
         ? `<span style="font-family:monospace;font-size:var(--font-xs);font-weight:700;color:#D4654A;background:rgba(212,101,74,0.06);padding:4px 10px;border-radius:8px;border:1px solid rgba(212,101,74,0.12);display:inline-block">${u.batteryId}</span>`
-        : `<span style="font-size:var(--font-xs);color:var(--text-label)">—</span>`}
+        : `<span style="font-size:var(--font-xs);color:var(--text-label)">-</span>`}
     </div>
     <!-- Swaps -->
     <div style="min-width:60px;text-align:center">
@@ -69,7 +72,7 @@ export async function renderUsers(container) {
 
   let users = [];
   try {
-    users = await fetch(`${API_BASE}/users`).then(r => r.json());
+    users = await apiFetch('/users').then(r => r.json());
   } catch {
     const { mockUsers } = await import('../data/mockData.js');
     users = mockUsers;
@@ -91,7 +94,7 @@ export async function renderUsers(container) {
       <div class="page-header">
         <div>
           <h1 class="page-title">Users & Customers</h1>
-          <p class="page-desc">${users.length} registered riders · ₹${(totalSpent / 1000).toFixed(1)}K total collected</p>
+          <p class="page-desc">${users.length} registered riders · ${formatRevM(totalSpent)} total collected</p>
         </div>
       </div>
 
@@ -114,8 +117,8 @@ export async function renderUsers(container) {
         </div>
         <div class="rev-kpi-card">
           <p class="rev-kpi-label">Revenue Collected</p>
-          <h2 class="rev-kpi-value">₹${(totalSpent / 1000).toFixed(1)}K</h2>
-          <span class="rev-badge rev-badge-up">↑ ₹65 / swap</span>
+          <h2 class="rev-kpi-value">${formatRevM(totalSpent)}</h2>
+          <span class="rev-badge rev-badge-up">↑ ${fmtCur(65)} / swap</span>
         </div>
       </div>
 
@@ -133,6 +136,10 @@ export async function renderUsers(container) {
               style="padding:7px 12px 7px 34px;border:1px solid var(--border-color);border-radius:var(--radius-full);font-size:var(--font-sm);color:var(--text-primary);background:var(--bg-input);width:220px;outline:none;font-family:inherit;transition:border-color 0.15s,box-shadow 0.15s"
               onfocus="this.style.borderColor='#D4654A';this.style.boxShadow='0 0 0 3px rgba(212,101,74,0.08)'" onblur="this.style.borderColor='var(--border-color)';this.style.boxShadow='none'" />
           </div>
+
+          <button id="users-export-btn" class="btn btn-outline" style="display:flex;align-items:center;gap:6px;padding:6px 14px;font-size:var(--font-xs)">
+            ${icon('download', '14px')} Export CSV
+          </button>
 
           <div style="display:flex;gap:5px;background:var(--bg-table-head);border-radius:var(--radius-full);padding:3px;border:1px solid var(--border-light)">
             ${filterBtn('all',      'All',      users.length, '#D4654A', 'rgba(212,101,74,0.10)')}
@@ -164,7 +171,7 @@ export async function renderUsers(container) {
 
       <footer class="app-footer" style="margin-top:2rem">
         ${icon('bolt', '16px', 'vertical-align:middle;margin-right:6px;color:#9ca3af')}
-        Electica Enterprise Dashboard © 2024
+        Electica Enterprise Dashboard © 2026
       </footer>
     </div>
   `;
@@ -197,4 +204,16 @@ export async function renderUsers(container) {
   });
 
   container.querySelector('.kyc-filter-btn[data-filter="all"]').style.borderColor = '#D4654A';
+
+  // Export CSV
+  document.getElementById('users-export-btn')?.addEventListener('click', () => {
+    const headers = ['User ID', 'Name', 'Phone', 'Vehicle', 'Vehicle Reg', 'KYC Status', 'Battery', 'Swaps', 'Total Spent', 'Registered'];
+    const rows = users.map(u => [
+      u.id, u.name, u.phone, u.vehicle, u.vehicleId || '',
+      u.kycStatus, u.batteryId || '', u.totalSwaps || 0,
+      u.totalSpent || 0, u.registeredAt || '',
+    ]);
+    downloadCsv('users-list', headers, rows);
+    showToast('Users exported', 'success');
+  });
 }

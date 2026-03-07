@@ -24,14 +24,56 @@ function renderStep(container, agent, onSuccess) {
   else if (step === 3) renderStep3(container, agent, onSuccess);
 }
 
+// ── Step Bar (Premium) ──────────────────────────────
+function stepBar(current) {
+  const steps = [
+    { label: 'Personal', icon: 'person' },
+    { label: 'KYC Docs', icon: 'verified_user' },
+    { label: 'Review', icon: 'fact_check' },
+  ];
+  let html = '<div class="step-bar-premium slide-up">';
+  steps.forEach((s, i) => {
+    const n   = i + 1;
+    const cls = n < current ? 'done' : n === current ? 'active' : 'inactive';
+    html += `<div class="step-node-p">
+      <div class="step-dot-p ${cls}">${n < current
+        ? `<span class="material-symbols-outlined" style="font-size:15px;font-variation-settings:'FILL' 1">check</span>`
+        : `<span class="material-symbols-outlined" style="font-size:15px;font-variation-settings:'FILL' 1">${s.icon}</span>`
+      }</div>
+      <span class="step-label-p ${cls}">${s.label}</span>
+    </div>`;
+    if (i < steps.length - 1) {
+      const connCls = n < current ? 'done' : n === current ? 'active' : '';
+      html += `<div class="step-connector-p ${connCls}"></div>`;
+    }
+  });
+  html += '</div>';
+  return html;
+}
+
+// ── Step Header ─────────────────────────────────────
+function stepHeader(icon, title, sub) {
+  return `
+  <div class="reg-step-header slide-up" style="animation-delay:0.05s">
+    <div class="reg-step-header-content">
+      <div class="reg-step-icon">
+        <span class="material-symbols-outlined">${icon}</span>
+      </div>
+      <div>
+        <div class="reg-step-title">${title}</div>
+        <div class="reg-step-sub">${sub}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
 // ── Step 1: Personal Details ──────────────────────────────
 function renderStep1(container, agent, onSuccess) {
   container.innerHTML = `
     ${stepBar(1)}
+    ${stepHeader('person_add', 'Personal Details', 'Customer identity and vehicle information')}
 
-    <div class="card" style="padding:18px;margin-bottom:14px">
-      <p class="form-section">Personal Details</p>
-
+    <div class="reg-form-card slide-up" style="animation-delay:0.10s">
       <div class="form-group">
         <label class="form-label">Full Name <span class="req">*</span></label>
         <div class="input-wrap">
@@ -51,8 +93,13 @@ function renderStep1(container, agent, onSuccess) {
         <div class="form-error" id="err-phone" style="display:none"></div>
       </div>
 
+      <div style="height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:4px 0 18px"></div>
+
       <div class="form-group">
-        <label class="form-label">Vehicle Model <span class="req">*</span></label>
+        <label class="form-label">
+          <span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:3px;color:var(--coral)">two_wheeler</span>
+          Vehicle Model <span class="req">*</span>
+        </label>
         <div class="select-wrapper">
           <span class="material-symbols-outlined input-icon" style="z-index:1">two_wheeler</span>
           <select id="f-vehicle" class="form-select with-icon">
@@ -73,8 +120,9 @@ function renderStep1(container, agent, onSuccess) {
       </div>
     </div>
 
-    <button class="btn btn-primary" id="step1-next">
-      <span class="material-symbols-outlined">arrow_forward</span> Continue to KYC Documents
+    <button class="btn btn-primary slide-up" id="step1-next" style="animation-delay:0.15s">
+      Continue to KYC
+      <span class="material-symbols-outlined">arrow_forward</span>
     </button>
   `;
 
@@ -98,12 +146,14 @@ function renderStep1(container, agent, onSuccess) {
 function renderStep2(container, agent, onSuccess) {
   container.innerHTML = `
     ${stepBar(2)}
+    ${stepHeader('verified_user', 'KYC Documents', 'Government-issued identity verification')}
 
-    <div class="card" style="padding:18px;margin-bottom:14px">
-      <p class="form-section">KYC Documents</p>
-
+    <div class="reg-form-card slide-up" style="animation-delay:0.10s">
       <div class="form-group">
-        <label class="form-label">Aadhaar Number <span class="req">*</span></label>
+        <label class="form-label">
+          <span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:3px;color:var(--coral)">credit_card</span>
+          Aadhaar Number <span class="req">*</span>
+        </label>
         <div class="input-wrap">
           <span class="material-symbols-outlined input-icon">credit_card</span>
           <input id="f-aadhaar" class="form-input with-icon" type="text" inputmode="numeric" placeholder="1234 5678 9012" maxlength="14" value="${formData.aadhaarRaw ? formData.aadhaarRaw.replace(/(\d{4})(?=\d)/g,'$1 ') : ''}" />
@@ -113,7 +163,10 @@ function renderStep2(container, agent, onSuccess) {
       </div>
 
       <div class="form-group" style="margin-bottom:0">
-        <label class="form-label">PAN Card Number <span class="req">*</span></label>
+        <label class="form-label">
+          <span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:3px;color:var(--coral)">badge</span>
+          PAN Card Number <span class="req">*</span>
+        </label>
         <div class="input-wrap">
           <span class="material-symbols-outlined input-icon">badge</span>
           <input id="f-pan" class="form-input with-icon" type="text" placeholder="ABCDE1234F" maxlength="10" value="${formData.pan || ''}" style="text-transform:uppercase;letter-spacing:0.08em" />
@@ -123,17 +176,18 @@ function renderStep2(container, agent, onSuccess) {
       </div>
     </div>
 
-    <div class="notice notice-coral">
+    <div class="notice notice-coral slide-up" style="animation-delay:0.12s">
       <span class="material-symbols-outlined">lock</span>
       <p>Document numbers are masked before storage. Physical documents must be verified in person before approving KYC.</p>
     </div>
 
-    <div style="display:flex;gap:10px">
+    <div style="display:flex;gap:10px" class="slide-up" style="animation-delay:0.15s">
       <button class="btn btn-ghost" id="step2-back" style="width:auto;padding:15px 18px;flex-shrink:0">
         <span class="material-symbols-outlined">arrow_back</span>
       </button>
       <button class="btn btn-primary" id="step2-next" style="flex:1">
-        <span class="material-symbols-outlined">arrow_forward</span> Review & Submit
+        Review & Submit
+        <span class="material-symbols-outlined">arrow_forward</span>
       </button>
     </div>
   `;
@@ -162,24 +216,35 @@ function renderStep2(container, agent, onSuccess) {
 function renderStep3(container, agent, onSuccess) {
   container.innerHTML = `
     ${stepBar(3)}
+    ${stepHeader('fact_check', 'Review & Submit', 'Verify all details before submission')}
 
-    <div class="card" style="padding:18px;margin-bottom:14px">
-      <p class="form-section">Review Details</p>
-      ${rRow('person',      'Name',       formData.name)}
-      ${rRow('call',        'Mobile',     formData.phone)}
-      ${rRow('two_wheeler', 'Vehicle',    formData.vehicle)}
-      ${rRow('pin',         'Reg. No.',   formData.vehicleId)}
-      ${rRow('credit_card', 'Aadhaar',    formData.aadhaar)}
-      ${rRow('badge',       'PAN',        formData.pan)}
-      ${rRow('badge',       'Agent',      agent.id, true)}
+    <div class="reg-form-card slide-up" style="animation-delay:0.10s">
+      <div class="review-tile-grid">
+        ${tile('person',      'Full Name',    formData.name)}
+        ${tile('call',        'Mobile',       formData.phone)}
+        ${tile('two_wheeler', 'Vehicle',      formData.vehicle)}
+        ${tile('pin',         'Registration', formData.vehicleId, true)}
+        ${tile('credit_card', 'Aadhaar',      formData.aadhaar, true)}
+        ${tile('badge',       'PAN Card',     formData.pan, true)}
+      </div>
+
+      <div style="margin-top:14px;padding:12px 14px;background:rgba(212,101,74,0.05);border:1px solid rgba(212,101,74,0.15);border-radius:10px;display:flex;align-items:center;gap:10px">
+        <div style="width:32px;height:32px;border-radius:9px;background:rgba(212,101,74,0.10);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <span class="material-symbols-outlined" style="font-size:15px;color:var(--coral);font-variation-settings:'FILL' 1">support_agent</span>
+        </div>
+        <div>
+          <p style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-soft);margin-bottom:2px">Onboarding Agent</p>
+          <p style="font-size:var(--font-sm);font-weight:700;color:var(--text)">${agent.name} <span style="font-size:var(--font-xs);color:var(--text-soft);font-family:monospace">${agent.id}</span></p>
+        </div>
+      </div>
     </div>
 
-    <div class="notice notice-amber">
+    <div class="notice notice-amber slide-up" style="animation-delay:0.12s">
       <span class="material-symbols-outlined">info</span>
-      <p>KYC will be submitted as <b>Pending</b>. You can approve it immediately after verifying documents and collecting ₹3,000 deposit.</p>
+      <p>KYC will be submitted as <b>Pending</b>. You can approve it immediately after verifying documents and collecting the <b>INR 3,000</b> security deposit.</p>
     </div>
 
-    <div style="display:flex;gap:10px">
+    <div style="display:flex;gap:10px" class="slide-up" style="animation-delay:0.15s">
       <button class="btn btn-ghost" id="step3-back" style="width:auto;padding:15px 18px;flex-shrink:0">
         <span class="material-symbols-outlined">arrow_back</span>
       </button>
@@ -218,30 +283,14 @@ function renderStep3(container, agent, onSuccess) {
 }
 
 // ── Helpers ────────────────────────────────────────────────
-function stepBar(current) {
-  const steps = ['Personal', 'KYC Docs', 'Review'];
-  let html = '<div class="step-bar">';
-  steps.forEach((s, i) => {
-    const n   = i + 1;
-    const cls = n < current ? 'done' : n === current ? 'active' : 'inactive';
-    html += `<div class="step-node">
-      <div class="step-dot ${cls}">${n < current ? `<span class="material-symbols-outlined" style="font-size:14px;font-variation-settings:'FILL' 1">check</span>` : n}</div>
-      <span class="step-node-label ${cls}">${s}</span>
-    </div>`;
-    if (i < steps.length - 1) html += `<div class="step-connector ${n < current ? 'done' : ''}"></div>`;
-  });
-  html += '</div>';
-  return html;
-}
-
-function rRow(iconName, label, value, muted = false) {
+function tile(iconName, label, value, mono = false) {
   return `
-  <div class="review-row">
-    <div class="review-icon" style="${muted ? 'background:var(--border-light)' : ''}">
-      <span class="material-symbols-outlined" style="${muted ? 'color:var(--text-soft)' : ''}">${iconName}</span>
+  <div class="review-tile">
+    <div class="review-tile-icon">
+      <span class="material-symbols-outlined">${iconName}</span>
     </div>
-    <span class="review-label">${label}</span>
-    <span class="review-value" style="font-family:${['Aadhaar','PAN','Agent','Reg. No.'].includes(label)?'monospace':'inherit'};${muted?'color:var(--text-soft)':''}">${value||'-'}</span>
+    <div class="review-tile-label">${label}</div>
+    <div class="review-tile-value" style="${mono ? 'font-family:monospace;letter-spacing:0.04em' : ''}">${value || '-'}</div>
   </div>`;
 }
 

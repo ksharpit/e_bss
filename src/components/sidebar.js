@@ -2,6 +2,7 @@
 // Sidebar Component (Electica Exact)
 // ============================================
 import { icon, ICONS } from './icons.js';
+import { clearToken, getAdminUser } from '../utils/apiFetch.js';
 
 export function renderSidebar() {
   const sidebar = document.getElementById('sidebar');
@@ -53,12 +54,18 @@ export function renderSidebar() {
       <div class="sidebar-footer">
         <div class="sidebar-user">
           <div class="sidebar-avatar">
-            <span style="font-size:var(--font-md);font-weight:600;color:#6b7280">AK</span>
+            <span style="font-size:var(--font-md);font-weight:600;color:#6b7280">${(() => { const u = getAdminUser(); return u ? u.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase() : 'SA'; })()}</span>
           </div>
           <div class="sidebar-user-info-text">
-            <div class="sidebar-user-name">Aditya Kumar</div>
-            <div class="sidebar-user-role">System Admin</div>
+            <div class="sidebar-user-name">${getAdminUser()?.name || 'System Admin'}</div>
+            <div class="sidebar-user-role">Admin</div>
           </div>
+          <button id="sidebar-logout-btn" title="Logout"
+            style="margin-left:auto;width:28px;height:28px;border-radius:8px;border:none;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0"
+            onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.color='#ef4444'"
+            onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.5)'">
+            <span class="material-symbols-outlined" style="font-size:18px">logout</span>
+          </button>
         </div>
       </div>
     </div>
@@ -70,6 +77,12 @@ export function renderSidebar() {
     const isCollapsed = app.classList.toggle('sidebar-collapsed');
     const collapseIcon = document.getElementById('sidebar-collapse-icon');
     if (collapseIcon) collapseIcon.textContent = isCollapsed ? 'menu' : 'menu_open';
+  });
+
+  // Logout
+  document.getElementById('sidebar-logout-btn')?.addEventListener('click', () => {
+    clearToken();
+    window.location.reload();
   });
 
   updateActiveLink();

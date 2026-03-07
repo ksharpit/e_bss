@@ -5,8 +5,7 @@ import { icon } from '../components/icons.js';
 import { showToast } from '../utils/toast.js';
 import { showNewStationModal } from '../components/header.js';
 
-import { API_BASE } from '../config.js';
-const API = API_BASE;
+import { apiFetch, getAdminUser, setAdminUser } from '../utils/apiFetch.js';
 
 // ── Station card builder ────────────────────
 function stationCard(s) {
@@ -88,9 +87,17 @@ function batteryListRow(b, userMap) {
       <span style="font-size:9px;font-weight:700;color:${cfg.color};text-transform:uppercase">${cfg.label}</span>
     </div>
     <div style="flex:1;display:flex;align-items:center;gap:6px">
-      <span class="material-symbols-outlined" style="font-size:14px;color:${user ? '#8b5cf6' : '#cbd5e1'}">person</span>
-      <span style="font-size:var(--font-sm);color:${user ? '#1e293b' : '#94a3b8'};font-weight:${user ? '600' : '400'}">${user ? user.name : 'Not assigned'}</span>
-      ${user ? `<span style="font-size:10px;color:#94a3b8;margin-left:2px">${user.phone || ''}</span>` : ''}
+      ${user
+        ? `<span class="material-symbols-outlined" style="font-size:14px;color:#8b5cf6">person</span>
+           <span style="font-size:var(--font-sm);color:#1e293b;font-weight:600">${user.name}</span>
+           <span style="font-size:10px;color:#94a3b8;margin-left:2px">${user.phone || ''}</span>`
+        : b.stationName
+          ? `<span class="material-symbols-outlined" style="font-size:14px;color:#D4654A">ev_station</span>
+             <span style="font-size:var(--font-sm);color:#1e293b;font-weight:600">${b.stationName}</span>
+             <span style="font-size:10px;color:#94a3b8;margin-left:2px">${b.stationId || ''}</span>`
+          : `<span class="material-symbols-outlined" style="font-size:14px;color:#cbd5e1">person</span>
+             <span style="font-size:var(--font-sm);color:#94a3b8;font-weight:400">Not assigned</span>`
+      }
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
       <div style="text-align:center;min-width:45px">
@@ -157,9 +164,9 @@ export async function renderSettings(container) {
     let stations = [], batteries = [], users = [];
     try {
       [stations, batteries, users] = await Promise.all([
-        fetch(`${API}/stations`).then(r => r.json()),
-        fetch(`${API}/batteries`).then(r => r.json()),
-        fetch(`${API}/users`).then(r => r.json()),
+        apiFetch('/stations').then(r => r.json()),
+        apiFetch('/batteries').then(r => r.json()),
+        apiFetch('/users').then(r => r.json()),
       ]);
     } catch { /* offline fallback */ }
 
@@ -167,8 +174,10 @@ export async function renderSettings(container) {
     const userMap = {};
     users.forEach(u => { userMap[u.id] = u; });
 
-    // Get current profile name from sidebar
-    const currentName = document.querySelector('.sidebar-user-name')?.textContent || 'Aditya Kumar';
+    // Get current profile name from stored admin user
+    const adminUser = getAdminUser() || {};
+    const currentName = adminUser.name || 'System Admin';
+    const currentEmail = adminUser.email || 'admin@electica.in';
 
     container.innerHTML = `
     <div style="max-width:100%;overflow:hidden">
@@ -192,7 +201,7 @@ export async function renderSettings(container) {
             </div>
             <div>
               <label style="font-size:var(--font-xs);font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px">Email Address</label>
-              <input type="email" id="settings-email" value="aditya.kumar@electica.in" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:var(--radius-md);font-size:var(--font-md);color:#1e293b;background:#f8fafc;font-family:inherit;box-sizing:border-box" />
+              <input type="email" id="settings-email" value="${currentEmail}" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:var(--radius-md);font-size:var(--font-md);color:#1e293b;background:#f8fafc;font-family:inherit;box-sizing:border-box" />
             </div>
             <div>
               <label style="font-size:var(--font-xs);font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px">Role</label>
@@ -231,27 +240,27 @@ export async function renderSettings(container) {
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem">
           <div style="padding:1rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px">
             <p style="font-size:var(--font-xs);font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">Default Currency</p>
-            <select style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:var(--radius-md);font-size:var(--font-md);background:white;font-family:inherit;color:#1e293b">
-              <option selected>₹ INR (Indian Rupee)</option>
-              <option>$ USD (US Dollar)</option>
-              <option>€ EUR (Euro)</option>
+            <select id="cfg-currency" style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:var(--radius-md);font-size:var(--font-md);background:white;font-family:inherit;color:#1e293b">
+              <option value="INR">₹ INR (Indian Rupee)</option>
+              <option value="USD">$ USD (US Dollar)</option>
+              <option value="EUR">€ EUR (Euro)</option>
             </select>
           </div>
           <div style="padding:1rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px">
             <p style="font-size:var(--font-xs);font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">Timezone</p>
-            <select style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:var(--radius-md);font-size:var(--font-md);background:white;font-family:inherit;color:#1e293b">
-              <option selected>IST (UTC+5:30)</option>
-              <option>UTC (UTC+0:00)</option>
-              <option>EST (UTC-5:00)</option>
+            <select id="cfg-timezone" style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:var(--radius-md);font-size:var(--font-md);background:white;font-family:inherit;color:#1e293b">
+              <option value="IST">IST (UTC+5:30)</option>
+              <option value="UTC">UTC (UTC+0:00)</option>
+              <option value="EST">EST (UTC-5:00)</option>
             </select>
           </div>
           <div style="padding:1rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px">
             <p style="font-size:var(--font-xs);font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px">Data Refresh Interval</p>
-            <select style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:var(--radius-md);font-size:var(--font-md);background:white;font-family:inherit;color:#1e293b">
-              <option>5 seconds</option>
-              <option selected>15 seconds</option>
-              <option>30 seconds</option>
-              <option>1 minute</option>
+            <select id="cfg-refresh" style="width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:var(--radius-md);font-size:var(--font-md);background:white;font-family:inherit;color:#1e293b">
+              <option value="5">5 seconds</option>
+              <option value="15">15 seconds</option>
+              <option value="30">30 seconds</option>
+              <option value="60">1 minute</option>
             </select>
           </div>
         </div>
@@ -317,7 +326,7 @@ export async function renderSettings(container) {
 
       <footer class="app-footer" style="margin-top:2rem">
         ${icon('bolt', '16px', 'vertical-align:middle;margin-right:6px;color:#9ca3af')}
-        Electica Enterprise Dashboard © 2024
+        Electica Enterprise Dashboard © 2026
       </footer>
     </div>
 
@@ -357,16 +366,52 @@ export async function renderSettings(container) {
     </div>
   `;
 
-    // ── Save profile → update sidebar name ──
-    document.getElementById('save-profile-btn')?.addEventListener('click', () => {
+    // ── Save profile → update sidebar + localStorage + server ──
+    document.getElementById('save-profile-btn')?.addEventListener('click', async () => {
         const newName = document.getElementById('settings-name')?.value?.trim();
-        if (newName) {
-            const sidebarName = document.querySelector('.sidebar-user-name');
-            const sidebarAvatar = document.querySelector('.sidebar-avatar span');
-            if (sidebarName) sidebarName.textContent = newName;
-            if (sidebarAvatar) sidebarAvatar.textContent = newName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-        }
-        showToast('Profile settings saved successfully', 'success');
+        const newEmail = document.getElementById('settings-email')?.value?.trim();
+        if (!newName) { showToast('Name cannot be empty', 'error'); return; }
+
+        // Update sidebar DOM immediately
+        const sidebarName = document.querySelector('.sidebar-user-name');
+        const sidebarAvatar = document.querySelector('.sidebar-avatar span');
+        if (sidebarName) sidebarName.textContent = newName;
+        if (sidebarAvatar) sidebarAvatar.textContent = newName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+
+        // Persist to localStorage
+        const stored = getAdminUser() || {};
+        setAdminUser({ ...stored, name: newName, email: newEmail });
+
+        // Persist to server so it survives re-login
+        try {
+            await apiFetch(`/admins/${stored.id || 'ADM-001'}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName }),
+            });
+        } catch { /* server update is best-effort */ }
+
+        showToast('Profile settings saved', 'success');
+    });
+
+    // ── System config selects - restore saved + persist on change ──
+    const cfgCurrency = document.getElementById('cfg-currency');
+    const cfgTimezone = document.getElementById('cfg-timezone');
+    const cfgRefresh = document.getElementById('cfg-refresh');
+    if (cfgCurrency) cfgCurrency.value = localStorage.getItem('electica_currency') || 'INR';
+    if (cfgTimezone) cfgTimezone.value = localStorage.getItem('electica_timezone') || 'IST';
+    if (cfgRefresh) cfgRefresh.value = localStorage.getItem('electica_refresh_interval') || '15';
+    cfgCurrency?.addEventListener('change', () => {
+        localStorage.setItem('electica_currency', cfgCurrency.value);
+        showToast('Currency updated to ' + cfgCurrency.value, 'success');
+    });
+    cfgTimezone?.addEventListener('change', () => {
+        localStorage.setItem('electica_timezone', cfgTimezone.value);
+        showToast('Timezone updated to ' + cfgTimezone.value, 'success');
+    });
+    cfgRefresh?.addEventListener('change', () => {
+        localStorage.setItem('electica_refresh_interval', cfgRefresh.value);
+        showToast('Refresh interval set to ' + cfgRefresh.value + 's', 'success');
     });
 
     // ── Generate Report ──
@@ -503,7 +548,7 @@ export async function renderSettings(container) {
         hideRepairPopup();
 
         try {
-            const res = await fetch(`${API}/batteries/${batId}`, {
+            const res = await apiFetch(`/batteries/${batId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: 'charging', stationId, stationName, assignedTo: null }),
@@ -565,7 +610,7 @@ export async function renderSettings(container) {
         if (card) card.style.borderColor = online ? '#e8e8e8' : '#fde68a';
 
         try {
-            const res = await fetch(`${API}/stations/${id}`, {
+            const res = await apiFetch(`/stations/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus }),
@@ -614,7 +659,7 @@ export async function renderSettings(container) {
         confirmDelete.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;animation:spin 0.6s linear infinite">progress_activity</span> Deleting...';
         confirmDelete.style.pointerEvents = 'none';
         try {
-            const res = await fetch(`${API}/${type}/${id}`, { method: 'DELETE' });
+            const res = await apiFetch(`/${type}/${id}`, { method: 'DELETE' });
             if (!res.ok) throw new Error('Failed');
             const card = container.querySelector(`.dm-card[data-id="${id}"][data-type="${type}"]`);
             if (card) {

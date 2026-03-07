@@ -1,9 +1,9 @@
 // ============================================
-// Stations List Page — Live API battery data
+// Stations List Page - Live API battery data
 // ============================================
 import { createStationCard } from '../components/stationCard.js';
 import { formatCurrency } from '../utils/helpers.js';
-import { API_BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
 
 // Map battery status → pod slot status for the station card dots
 function batteryToPod(b) {
@@ -25,9 +25,9 @@ export async function renderStations(container) {
   let stations = [], batteries = [], allSwaps = [];
   try {
     [stations, batteries, allSwaps] = await Promise.all([
-      fetch(`${API_BASE}/stations`).then(r => r.json()),
-      fetch(`${API_BASE}/batteries`).then(r => r.json()),
-      fetch(`${API_BASE}/swaps`).then(r => r.json()),
+      apiFetch('/stations').then(r => r.json()),
+      apiFetch('/batteries').then(r => r.json()),
+      apiFetch('/swaps').then(r => r.json()),
     ]);
   } catch { /* render empty if API offline */ }
 

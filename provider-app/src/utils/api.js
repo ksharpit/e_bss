@@ -2,20 +2,20 @@
 // API helpers
 // ============================================
 
-import { API_BASE as BASE } from '../config.js';
+import { apiFetch } from './apiFetch.js';
 
 export async function getUsers(agentId) {
-  const res = await fetch(`${BASE}/users?onboardedBy=${agentId}`);
+  const res = await apiFetch(`/users?onboardedBy=${agentId}`);
   return res.json();
 }
 
 export async function getAllPendingUsers() {
-  const res = await fetch(`${BASE}/users?kycStatus=pending`);
+  const res = await apiFetch('/users?kycStatus=pending');
   return res.json();
 }
 
 export async function createUser(data) {
-  const res = await fetch(`${BASE}/users`, {
+  const res = await apiFetch('/users', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -25,7 +25,7 @@ export async function createUser(data) {
 }
 
 export async function getNextUserId() {
-  const res = await fetch(`${BASE}/users`);
+  const res = await apiFetch('/users');
   const users = await res.json();
   const nums = users.map(u => parseInt(u.id.replace('USR-', ''), 10)).filter(Boolean);
   const next = nums.length ? Math.max(...nums) + 1 : 1;

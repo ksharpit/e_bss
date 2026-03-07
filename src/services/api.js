@@ -3,13 +3,11 @@
 // All apps consume data through these functions.
 // ============================================
 
-import { API_BASE as BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
 
 async function request(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  const res = await apiFetch(path, { ...options, headers });
   if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
   return res.json();
 }

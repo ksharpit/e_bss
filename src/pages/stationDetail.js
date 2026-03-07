@@ -1,9 +1,10 @@
 // ============================================
-// Station Detail Page (Electica — Coral Theme)
+// Station Detail Page (Electica - Coral Theme)
 // ============================================
 import { icon } from '../components/icons.js';
 import { showToast } from '../utils/toast.js';
-import { API_BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
+import { fmtCur } from '../utils/helpers.js';
 
 // Battery status → cabinet slot status
 function batteryToSlot(b) {
@@ -18,7 +19,7 @@ function batteryToSlot(b) {
 }
 
 function fmtTime(ts) {
-  if (!ts) return '—';
+  if (!ts) return '-';
   const d = new Date(ts);
   return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
@@ -34,28 +35,51 @@ export async function renderStationDetail(container, stationId) {
 
   let station = null;
   try {
-    station = await fetch(`${API_BASE}/stations/${stationId}`).then(r => r.ok ? r.json() : null);
+    station = await apiFetch(`/stations/${stationId}`).then(r => r.ok ? r.json() : null);
   } catch { /* API offline */ }
   if (!station) { container.innerHTML = '<p style="padding:3rem;text-align:center;color:#94a3b8">Station not found.</p>'; return; }
   // Normalize field names (db.json uses totalSwapsToday)
   if (station.swapsToday == null && station.totalSwapsToday != null) station.swapsToday = station.totalSwapsToday;
 
-  // Fetch batteries at this station + recent swaps (no allocations — those happen physically at onboarding)
+  // Fetch batteries at this station + recent swaps (no allocations - those happen physically at onboarding)
   let batteries = [], swaps = [];
   try {
     [batteries, swaps] = await Promise.all([
-      fetch(`${API_BASE}/batteries?stationId=${stationId}`).then(r => r.json()),
-      fetch(`${API_BASE}/swaps?stationId=${stationId}`).then(r => r.json()),
+      apiFetch(`/batteries?stationId=${stationId}`).then(r => r.json()),
+      apiFetch(`/swaps?stationId=${stationId}`).then(r => r.json()),
     ]);
     swaps = swaps.filter(s => s.type !== 'allocation')
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   } catch { /* render with empty data if API offline */ }
 
-  // Compute real revenue/swaps today from swap records
-  const todayStr = new Date().toISOString().slice(0, 10);
+  // Compute real revenue/swaps today vs yesterday from swap records
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
   const todaySwaps = swaps.filter(s => s.timestamp?.startsWith(todayStr));
+  const yesterdaySwaps = swaps.filter(s => s.timestamp?.startsWith(yesterdayStr));
+
   station.swapsToday = todaySwaps.length;
   station.revenueToday = todaySwaps.length * 65;
+
+  const yesterdayRevenue = yesterdaySwaps.length * 65;
+  const yesterdayEnergy = yesterdaySwaps.length * 2;
+
+  // Calculate real % change vs yesterday
+  function pctChange(today, yesterday) {
+    if (yesterday === 0) return today > 0 ? { val: '+100%', dir: 'up' } : { val: '0%', dir: 'neutral' };
+    const pct = ((today - yesterday) / yesterday * 100).toFixed(1);
+    if (pct > 0) return { val: '+' + pct + '%', dir: 'up' };
+    if (pct < 0) return { val: pct + '%', dir: 'down' };
+    return { val: '0%', dir: 'neutral' };
+  }
+
+  const revTrend = pctChange(station.revenueToday, yesterdayRevenue);
+  const swapTrend = pctChange(todaySwaps.length, yesterdaySwaps.length);
+  const energyTrend = pctChange(todaySwaps.length * 2, yesterdayEnergy);
+
   const recentSwaps = swaps.slice(0, 8);
 
   // Build cabinet slots from real batteries + empty fillers
@@ -95,10 +119,15 @@ export async function renderStationDetail(container, stationId) {
         <div style="display:flex;flex-direction:column;gap:8px">
           <div style="display:flex;align-items:center;gap:16px">
             <h1 style="font-size:1.875rem;font-weight:700;color:#1e293b">${station.name}</h1>
-            <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:var(--radius-full);font-size:var(--font-xs);font-weight:700;background:rgba(212,101,74,0.10);color:#D4654A;border:1px solid rgba(212,101,74,0.25)">
-              <span style="width:6px;height:6px;border-radius:50%;background:#D4654A;animation:pulse 2s infinite"></span>
-              Operational
-            </span>
+            ${station.status === 'maintenance'
+              ? `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:var(--radius-full);font-size:var(--font-xs);font-weight:700;background:#fef3c7;color:#d97706;border:1px solid #fde68a">
+                  <span style="width:6px;height:6px;border-radius:50%;background:#d97706"></span>
+                  Maintenance
+                </span>`
+              : `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:var(--radius-full);font-size:var(--font-xs);font-weight:700;background:rgba(212,101,74,0.10);color:#D4654A;border:1px solid rgba(212,101,74,0.25)">
+                  <span style="width:6px;height:6px;border-radius:50%;background:#D4654A;animation:pulse 2s infinite"></span>
+                  Operational
+                </span>`}
           </div>
           <p style="font-size:var(--font-md);color:#64748b;font-weight:500;display:flex;align-items:center;gap:8px">
             <span style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:var(--font-sm);font-family:monospace;color:#475569">ID: ${station.id}</span>
@@ -115,9 +144,9 @@ export async function renderStationDetail(container, stationId) {
 
     <!-- 4 KPI Cards -->
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1rem">
-      ${stationKpiCard('payments',   'Revenue Today', '₹' + station.revenueToday.toLocaleString('en-IN'), '+12.5%', 'up')}
-      ${stationKpiCard('swap_horiz', 'Swaps Today',   String(station.swapsToday),                         '+8.2%',  'up')}
-      ${stationKpiCard('bolt',       'Energy Used',   `${energyDispensed} kWh`,                          '+4.1%',  'up')}
+      ${stationKpiCard('payments',   'Revenue Today', fmtCur(station.revenueToday), revTrend.val, revTrend.dir)}
+      ${stationKpiCard('swap_horiz', 'Swaps Today',   String(station.swapsToday),                         swapTrend.val,  swapTrend.dir)}
+      ${stationKpiCard('bolt',       'Energy Used',   `${energyDispensed} kWh`,                          energyTrend.val,  energyTrend.dir)}
     </div>
 
     <!-- Battery Cabinet Grid + Charger Monitoring -->
@@ -175,7 +204,7 @@ export async function renderStationDetail(container, stationId) {
       </div>
     </div>
 
-    <!-- Revenue Trend + Station Location — Side by Side -->
+    <!-- Revenue Trend + Station Location - Side by Side -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
 
       <!-- Revenue Trend -->
@@ -207,11 +236,11 @@ export async function renderStationDetail(container, stationId) {
         <div style="margin-top:1.25rem;display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div style="background:#faf9f7;border-radius:12px;padding:14px 16px;border:1px solid #f0efec">
             <p style="font-size:9px;font-weight:700;color:#a8a8a8;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">Weekly Total</p>
-            <p style="font-size:1.375rem;font-weight:800;color:#1a1a1a;letter-spacing:-0.02em">₹2,842</p>
+            <p style="font-size:1.375rem;font-weight:800;color:#1a1a1a;letter-spacing:-0.02em">${fmtCur(2842)}</p>
           </div>
           <div style="background:#faf9f7;border-radius:12px;padding:14px 16px;border:1px solid #f0efec">
             <p style="font-size:9px;font-weight:700;color:#a8a8a8;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">Avg / Day</p>
-            <p style="font-size:1.375rem;font-weight:800;color:#1a1a1a;letter-spacing:-0.02em">₹406</p>
+            <p style="font-size:1.375rem;font-weight:800;color:#1a1a1a;letter-spacing:-0.02em">${fmtCur(406)}</p>
           </div>
         </div>
       </div>
@@ -236,7 +265,7 @@ export async function renderStationDetail(container, stationId) {
 
     </div>
 
-    <!-- Recent Swap Transactions — Full Width Card-List -->
+    <!-- Recent Swap Transactions - Full Width Card-List -->
     <div class="card" style="padding:0;margin-bottom:1rem;overflow:hidden">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:1.25rem 1.5rem 1rem">
         <h3 style="font-size:var(--font-xl);font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:10px">
@@ -269,7 +298,7 @@ export async function renderStationDetail(container, stationId) {
             <div style="flex:1;display:flex;align-items:center;gap:6px;justify-content:center">
               ${s.batteryOut ? `<span style="font-family:monospace;font-size:var(--font-sm);font-weight:600;color:var(--text-muted);background:var(--bg-table-head);padding:3px 10px;border-radius:6px;border:1px solid var(--border-color)">${s.batteryOut}</span>
               <span class="material-symbols-outlined" style="font-size:14px;color:#D4654A">arrow_forward</span>` : ''}
-              <span style="font-family:monospace;font-size:var(--font-sm);font-weight:700;color:#D4654A;background:var(--accent-10);border:1px solid rgba(212,101,74,0.15);padding:3px 10px;border-radius:6px">${s.batteryIn || '—'}</span>
+              <span style="font-family:monospace;font-size:var(--font-sm);font-weight:700;color:#D4654A;background:var(--accent-10);border:1px solid rgba(212,101,74,0.15);padding:3px 10px;border-radius:6px">${s.batteryIn || '-'}</span>
             </div>
             <!-- Date & Time -->
             <div style="text-align:right;min-width:100px;flex-shrink:0">
@@ -277,7 +306,7 @@ export async function renderStationDetail(container, stationId) {
             </div>
             <!-- Amount -->
             <div style="text-align:right;min-width:64px;flex-shrink:0">
-              <span style="font-size:var(--font-md);font-weight:800;color:var(--text-primary)">₹${s.amount}</span>
+              <span style="font-size:var(--font-md);font-weight:800;color:var(--text-primary)">${fmtCur(s.amount || 0)}</span>
             </div>
           </div>`).join('')}
         </div>
@@ -287,7 +316,7 @@ export async function renderStationDetail(container, stationId) {
     <!-- Footer -->
     <footer class="app-footer">
       ${icon('bolt', '16px', 'vertical-align:middle;margin-right:6px;color:#94a3b8')}
-      Electica Enterprise Dashboard © 2024
+      Electica Enterprise Dashboard © 2026
     </footer>
 
     </div>
@@ -328,7 +357,7 @@ export async function renderStationDetail(container, stationId) {
       bar.style.transformOrigin = 'bottom';
       trendTT.innerHTML = `
         <div style="font-size:10px;font-weight:600;color:#9ca3af;margin-bottom:3px">${col.dataset.day}</div>
-        <div style="font-size:15px;font-weight:700;color:#D4654A">₹${parseInt(col.dataset.val).toLocaleString()}</div>
+        <div style="font-size:15px;font-weight:700;color:#D4654A">${fmtCur(parseInt(col.dataset.val))}</div>
       `;
       const r = bar.getBoundingClientRect();
       trendTT.style.left = (r.left + r.width / 2) + 'px';
@@ -349,10 +378,10 @@ export async function renderStationDetail(container, stationId) {
 }
 
 function stationKpiCard(iconName, label, value, trend, trendType) {
-  const trendColor  = trendType === 'up' ? '#059669' : trendType === 'neutral' ? '#64748b' : '#D4654A';
-  const trendBg     = trendType === 'up' ? '#ecfdf5' : trendType === 'neutral' ? '#f8fafc'  : 'rgba(212,101,74,0.10)';
-  const trendBorder = trendType === 'up' ? '#a7f3d0' : trendType === 'neutral' ? '#f1f5f9'  : 'rgba(212,101,74,0.25)';
-  const trendIcon   = trendType === 'up' ? 'trending_up' : trendType === 'neutral' ? 'remove' : 'trending_up';
+  const trendColor  = trendType === 'up' ? '#059669' : trendType === 'neutral' ? '#64748b' : '#ef4444';
+  const trendBg     = trendType === 'up' ? '#ecfdf5' : trendType === 'neutral' ? '#f8fafc'  : '#fef2f2';
+  const trendBorder = trendType === 'up' ? '#a7f3d0' : trendType === 'neutral' ? '#f1f5f9'  : '#fecaca';
+  const trendIcon   = trendType === 'up' ? 'trending_up' : trendType === 'neutral' ? 'remove' : 'trending_down';
 
   return `
     <div style="background:white;border:1px solid #f1f5f9;border-radius:16px;padding:1.25rem;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;box-shadow:0 4px 20px -2px rgba(0,0,0,0.05);transition:all 0.2s;cursor:pointer" onmouseover="this.style.boxShadow='0 8px 30px -4px rgba(0,0,0,0.1)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 4px 20px -2px rgba(0,0,0,0.05)';this.style.transform='none'">

@@ -1,5 +1,5 @@
 // ============================================
-// Swap Confirmation Page (Electica — Coral Theme)
+// Swap Confirmation Page (Electica - Coral Theme)
 // ============================================
 import { icon } from '../components/icons.js';
 import { showToast } from '../utils/toast.js';
@@ -177,7 +177,7 @@ export function renderSwapConfirmation(container) {
     showToast('Station camera feed loading...', 'info');
   });
 
-  // Leaflet map — selected station
+  // Leaflet map - selected station
   initConfirmMap('sc-station-map', sel.lat, sel.lng, `${sel.name} • Bay 04`);
 }
 

@@ -2,7 +2,7 @@
 // Home - Battery Dashboard
 // ============================================
 import { showToast } from '../utils/toast.js';
-import { API_BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
 
 const MOCK_DIST = { 'BSS-001': '0.8', 'BSS-002': '3.2', 'BSS-003': '7.1', 'BSS-004': '9.4', 'BSS-005': '2.1' };
 
@@ -39,14 +39,14 @@ export async function renderHome(container, userId, setTab) {
   let user = null, battery = null, stations = [], recentSwaps = [], allBatteries = [];
   try {
     [user, stations, allBatteries] = await Promise.all([
-      fetch(`${API_BASE}/users/${userId}`).then(r => r.ok ? r.json() : null),
-      fetch(`${API_BASE}/stations`).then(r => r.json()),
-      fetch(`${API_BASE}/batteries`).then(r => r.json()),
+      apiFetch(`/users/${userId}`).then(r => r.ok ? r.json() : null),
+      apiFetch('/stations').then(r => r.json()),
+      apiFetch('/batteries').then(r => r.json()),
     ]);
     if (user?.batteryId) {
       [battery, recentSwaps] = await Promise.all([
-        fetch(`${API_BASE}/batteries/${user.batteryId}`).then(r => r.ok ? r.json() : null),
-        fetch(`${API_BASE}/swaps?userId=${userId}`).then(r => r.json()).then(arr => arr.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 3)),
+        apiFetch(`/batteries/${user.batteryId}`).then(r => r.ok ? r.json() : null),
+        apiFetch(`/swaps?userId=${userId}`).then(r => r.json()).then(arr => arr.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 3)),
       ]);
     }
   } catch {

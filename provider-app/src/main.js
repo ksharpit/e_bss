@@ -7,11 +7,12 @@ import { renderRegister }       from './pages/register.js';
 import { renderConfirmation }   from './pages/confirmation.js';
 import { renderCustomerDetail } from './pages/customerDetail.js';
 import { renderResubmit }       from './pages/resubmit.js';
+import { renderSupport }        from './pages/support.js';
+import { renderLogin }          from './pages/login.js';
 import { showToast }            from './utils/toast.js';
-import { API_BASE }             from './config.js';
+import { getToken, getAgent, clearToken, apiFetch } from './utils/apiFetch.js';
 
-const AGENT = { id: 'AGT-001', name: 'Ravi Mehta', zone: 'South Bangalore' };
-
+let AGENT = null;
 let currentTab = 'home';
 let overlay    = null; // { type: 'detail' | 'confirm' | 'resubmit', data: {} }
 
@@ -41,7 +42,7 @@ function render() {
               <div class="app-bar-subtitle">Provider App · ${AGENT.zone}</div>
             </div>
            </div>`}
-      <div class="app-bar-avatar">${AGENT.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+      <div class="app-bar-avatar" id="app-bar-avatar" style="cursor:pointer">${AGENT.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
     </div>
 
     <div class="page" id="page-content"></div>
@@ -56,12 +57,16 @@ function render() {
         <div class="nav-fab-circle"><span class="material-symbols-outlined">person_add</span></div>
         <span class="nav-fab-label">Register</span>
       </button>
-      <button class="nav-item ${currentTab === 'profile' ? 'active' : ''}" data-tab="profile">
-        <span class="material-symbols-outlined">account_circle</span>
-        Profile
+      <button class="nav-item ${currentTab === 'support' ? 'active' : ''}" data-tab="support">
+        <span class="material-symbols-outlined">support_agent</span>
+        Support
       </button>
     </nav>` : ''}
   `;
+
+  document.getElementById('app-bar-avatar')?.addEventListener('click', () => {
+    overlay = null; currentTab = 'support'; render();
+  });
 
   document.getElementById('app-back')?.addEventListener('click', () => {
     overlay = null;
@@ -121,76 +126,27 @@ function renderPage() {
     renderRegister(content, AGENT, (userId, userName) => {
       overlay = { type: 'confirm', data: { userId, userName } }; render();
     });
-  } else if (currentTab === 'profile') {
-    renderProfile(content);
+  } else if (currentTab === 'support') {
+    renderSupport(content, AGENT);
   }
 }
 
-function renderProfile(content) {
-  content.innerHTML = `
-    <!-- Agent Profile Hero -->
-    <div style="background:linear-gradient(145deg,#D96A50,#9E3A2E);border-radius:20px;padding:28px 20px 24px;margin-bottom:16px;text-align:center;position:relative;overflow:hidden;box-shadow:0 12px 32px rgba(175,55,40,0.30)">
-      <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.06)"></div>
-      <div style="width:68px;height:68px;border-radius:50%;background:rgba(255,255,255,0.2);border:3px solid rgba(255,255,255,0.30);display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
-        <span style="font-size:1.375rem;font-weight:900;color:#fff">${AGENT.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</span>
-      </div>
-      <h2 style="font-size:1.25rem;font-weight:800;color:#fff;margin-bottom:4px;letter-spacing:-0.02em">${AGENT.name}</h2>
-      <p style="font-size:var(--font-xs);color:rgba(255,255,255,0.55);font-weight:600">${AGENT.id}</p>
-      <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.20);border-radius:var(--radius-full);padding:4px 12px;margin-top:10px">
-        <span class="material-symbols-outlined" style="font-size:12px;color:rgba(255,255,255,0.70);font-variation-settings:'FILL' 1">location_on</span>
-        <span style="font-size:var(--font-xs);color:rgba(255,255,255,0.75);font-weight:600">${AGENT.zone}</span>
-      </div>
-    </div>
+// --- Auth gate ---
+function boot() {
+  const token = getToken();
+  const agent = getAgent();
 
-    <!-- Agent Details -->
-    <div class="card" style="overflow:hidden;margin-bottom:14px">
-      ${pRow('business',     'Provider', 'Electica India Pvt. Ltd.')}
-      ${pRow('verified_user','Role',     'Field Onboarding Agent')}
-      ${pRow('badge',        'Agent ID', AGENT.id)}
-      ${pRow('location_on',  'Zone',     AGENT.zone)}
-    </div>
-
-    <!-- System -->
-    <div class="section-label">System</div>
-    <div class="card" style="overflow:hidden;margin-bottom:14px">
-      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border-light);cursor:pointer" id="api-check">
-        <div style="width:34px;height:34px;border-radius:10px;background:rgba(99,102,241,0.09);display:flex;align-items:center;justify-content:center">
-          <span class="material-symbols-outlined" style="font-size:17px;color:#6366f1;font-variation-settings:'FILL' 1">sync</span>
-        </div>
-        <span style="flex:1;font-size:var(--font-sm);font-weight:600;color:var(--text)">Check API Connection</span>
-        <span class="material-symbols-outlined" style="font-size:16px;color:var(--text-soft)">chevron_right</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px">
-        <div style="width:34px;height:34px;border-radius:10px;background:rgba(212,101,74,0.09);display:flex;align-items:center;justify-content:center">
-          <span class="material-symbols-outlined" style="font-size:17px;color:var(--coral);font-variation-settings:'FILL' 1">support_agent</span>
-        </div>
-        <span style="flex:1;font-size:var(--font-sm);font-weight:600;color:var(--text)">Contact Support</span>
-        <span class="material-symbols-outlined" style="font-size:16px;color:var(--text-soft)">chevron_right</span>
-      </div>
-    </div>
-
-    <p style="text-align:center;font-size:var(--font-xs);color:var(--text-soft);font-weight:500;padding-bottom:8px">
-      Electica Provider App v1.0 · Admin on :5173
-    </p>
-  `;
-
-  document.getElementById('api-check')?.addEventListener('click', async () => {
-    try {
-      const r = await fetch('${API_BASE}/users?_limit=1');
-      if (r.ok) showToast('API connected - json-server on :3001', 'success');
-    } catch {
-      showToast('Cannot reach API - is json-server running?', 'error');
-    }
-  });
+  if (!token || !agent) {
+    app.innerHTML = '<div class="page" id="page-content"></div>';
+    const content = document.getElementById('page-content');
+    renderLogin(content, (agentData) => {
+      AGENT = agentData;
+      render();
+    });
+  } else {
+    AGENT = agent;
+    render();
+  }
 }
 
-function pRow(iconName, label, value) {
-  return `
-  <div style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--border-light)">
-    <span class="material-symbols-outlined" style="font-size:18px;color:var(--coral);font-variation-settings:'FILL' 1;flex-shrink:0">${iconName}</span>
-    <span style="font-size:var(--font-xs);color:var(--text-soft);font-weight:600;width:72px;flex-shrink:0">${label}</span>
-    <span style="font-size:var(--font-sm);font-weight:600;color:var(--text)">${value}</span>
-  </div>`;
-}
-
-render();
+boot();

@@ -2,7 +2,7 @@
 // Swap - QR Scan + Battery Swap Flow
 // ============================================
 import { showToast } from '../utils/toast.js';
-import { API_BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
 
 const MOCK_DIST = { 'BSS-001': '0.8', 'BSS-002': '3.2', 'BSS-003': '7.1', 'BSS-004': '9.4', 'BSS-005': '2.1' };
 const SWAP_FEE  = 65; // INR per swap (consistent with existing data)
@@ -12,9 +12,9 @@ export async function renderScan(container, userId, setTab) {
   let user = null, stations = [], batteries = [];
   try {
     [user, stations, batteries] = await Promise.all([
-      fetch(`${API_BASE}/users/${userId}`).then(r => r.ok ? r.json() : null),
-      fetch(`${API_BASE}/stations`).then(r => r.json()),
-      fetch(`${API_BASE}/batteries`).then(r => r.json()),
+      apiFetch(`/users/${userId}`).then(r => r.ok ? r.json() : null),
+      apiFetch('/stations').then(r => r.json()),
+      apiFetch('/batteries').then(r => r.json()),
     ]);
   } catch {
     showToast('Cannot reach API', 'error');
@@ -133,7 +133,7 @@ function getStationById(id, container) {
 // ── Swap Confirmation Sheet ───────────────────────────────
 function showSwapConfirmation(container, user, station, userBat, newBat, batteries, setTab) {
   // Fetch full station data for name
-  fetch(`${API_BASE}/stations/${station.id}`)
+  apiFetch(`/stations/${station.id}`)
     .then(r => r.ok ? r.json() : { name: station.name, location: station.location, id: station.id })
     .then(fullStation => {
       buildSwapSheet(container, user, fullStation, userBat, newBat, batteries, setTab);
@@ -253,7 +253,7 @@ async function processSwap(user, station, oldBat, newBat) {
   const txnId = 'TXN-SW-' + Date.now();
 
   // 1. Create swap record
-  const swapRes = await fetch(`${API_BASE}/swaps`, {
+  const swapRes = await apiFetch('/swaps', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -270,11 +270,11 @@ async function processSwap(user, station, oldBat, newBat) {
       type: 'swap',
     }),
   });
-  if (!swapRes.ok) throw new Error('Failed to create swap record — check json-server');
+  if (!swapRes.ok) throw new Error('Failed to create swap record - check json-server');
 
   // 2. Update old battery - return to station for charging
   if (oldBat) {
-    await fetch(`${API_BASE}/batteries/${oldBat.id}`, {
+    await apiFetch(`/batteries/${oldBat.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -290,7 +290,7 @@ async function processSwap(user, station, oldBat, newBat) {
 
   // 3. Update new battery - deploy to user
   if (newBat) {
-    await fetch(`${API_BASE}/batteries/${newBat.id}`, {
+    await apiFetch(`/batteries/${newBat.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -304,7 +304,7 @@ async function processSwap(user, station, oldBat, newBat) {
   }
 
   // 4. Update user record
-  await fetch(`${API_BASE}/users/${user.id}`, {
+  await apiFetch(`/users/${user.id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

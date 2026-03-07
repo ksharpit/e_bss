@@ -46,7 +46,7 @@
       "id": "BSS-004",
       "name": "Whitefield Depot",
       "location": "Whitefield, Bengaluru",
-      "status": "online",
+      "status": "maintenance",
       "pods": 8,
       "totalSwapsToday": 12,
       "totalSwapsMonth": 634,
@@ -330,7 +330,7 @@
       "id": "BAT-0021",
       "stationId": "BSS-004",
       "stationName": "Whitefield Depot",
-      "status": "available",
+      "status": "fault",
       "assignedTo": null,
       "soc": 88,
       "health": 91,
@@ -3388,6 +3388,116 @@
       "description": "Security deposit - battery onboarding"
     }
   ],
-  "tickets": [],
-  "$schema": "./node_modules/json-server/schema.json"
+  "tickets": [
+    {
+      "id": "AQ-1772890926097",
+      "type": "admin_query",
+      "targetAgentId": "AGT-001",
+      "subject": "Battery problem?",
+      "description": "please update me.",
+      "status": "resolved",
+      "timestamp": "2026-03-07T13:42:06.097Z",
+      "response": "will do.",
+      "respondedBy": "AGT-001",
+      "respondedAt": "2026-03-07T13:48:55.519Z"
+    },
+    {
+      "id": "FLT-1772891452948",
+      "type": "fault_report",
+      "batteryId": "BAT-0027",
+      "batteryStatus": "available",
+      "agentId": "AGT-001",
+      "description": "issue",
+      "status": "open",
+      "timestamp": "2026-03-07T13:50:52.948Z",
+      "replies": [
+        {
+          "from": "AGT-001",
+          "name": "Ravi Mehta",
+          "role": "agent",
+          "text": "got it, will update.",
+          "timestamp": "2026-03-07T15:09:40.018Z"
+        },
+        {
+          "from": "admin",
+          "name": "Admin",
+          "role": "admin",
+          "text": "Keep me updated on the status.",
+          "timestamp": "2026-03-07T15:10:41.035Z"
+        }
+      ]
+    },
+    {
+      "id": "AQ-1772896682348",
+      "type": "admin_query",
+      "targetAgentId": "AGT-001",
+      "subject": "List me the battery with the customers",
+      "description": "Want to know the faulty ones",
+      "status": "open",
+      "timestamp": "2026-03-07T15:18:02.348Z",
+      "replies": [
+        {
+          "from": "AGT-001",
+          "name": "Ravi Mehta",
+          "role": "agent",
+          "text": "On it.",
+          "timestamp": "2026-03-07T15:18:19.612Z"
+        }
+      ]
+    },
+    {
+      "id": "FLT-1772897385276",
+      "type": "fault_report",
+      "batteryId": "BAT-0021",
+      "batteryStatus": "available",
+      "agentId": "AGT-001",
+      "description": "its faulty",
+      "status": "open",
+      "timestamp": "2026-03-07T15:29:45.276Z"
+    },
+    {
+      "id": "FLT-1772898617128",
+      "type": "fault_report",
+      "batteryId": "BAT-0021",
+      "batteryStatus": "available",
+      "agentId": "AGT-001",
+      "description": "fault",
+      "status": "resolved",
+      "timestamp": "2026-03-07T15:50:17.128Z",
+      "replies": [
+        {
+          "from": "admin",
+          "name": "Admin",
+          "role": "admin",
+          "text": "okay",
+          "timestamp": "2026-03-07T15:50:38.121Z"
+        }
+      ],
+      "approvedBy": "admin",
+      "resolvedAt": "2026-03-07T15:50:54.333Z"
+    }
+  ],
+  "$schema": "./node_modules/json-server/schema.json",
+  "admins": [
+    {
+      "id": "ADM-001",
+      "username": "admin",
+      "name": "System Admin",
+      "passwordHash": "$2b$10$7FdDKMP9KyuiigF8rJ8iCOFgq5ptduf8yLTvmnyZ6FQGwC5ox6cyq"
+    }
+  ],
+  "agents": [
+    {
+      "id": "AGT-001",
+      "name": "Ravi Mehta",
+      "zone": "South Bangalore",
+      "passwordHash": "$2b$10$SLH85.hLhxGoRkenGzoYv.UzaHMd7XUdVAXeB7JBEnRFqeVDXbWsG"
+    },
+    {
+      "id": "AGT-002",
+      "name": "Priya Sharma",
+      "zone": "North Bangalore",
+      "passwordHash": "$2b$10$VVlVVZZWXQfgVrrLWzzNl.T.dCz0tPXQhZWVH7NeMtdH7JiR4lRIe"
+    }
+  ]
 }

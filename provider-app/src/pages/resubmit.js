@@ -2,7 +2,7 @@
 // Resubmit KYC - for rejected customers
 // ============================================
 import { showToast } from '../utils/toast.js';
-import { API_BASE } from '../config.js';
+import { apiFetch } from '../utils/apiFetch.js';
 
 const VEHICLES = [
   'Ather 450X', 'Ather 450S', 'Ola S1 Pro', 'Ola S1 Air',
@@ -116,7 +116,7 @@ export function renderResubmit(container, user, onSuccess, onCancel) {
       const parts    = name.trim().split(' ');
       const initials = (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase();
 
-      await fetch(`${API_BASE}/users/${user.id}`, {
+      await apiFetch(`/users/${user.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
