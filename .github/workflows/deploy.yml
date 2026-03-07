@@ -57,7 +57,8 @@ jobs:
 
           # Upload server + config files
           scp $SSH_OPTS -r server ubuntu@$EC2_HOST:/var/www/electica/
-          scp $SSH_OPTS package.json package-lock.json deploy/ecosystem.config.js ubuntu@$EC2_HOST:/var/www/electica/
+          scp $SSH_OPTS package.json package-lock.json deploy/ecosystem.config.cjs ubuntu@$EC2_HOST:/var/www/electica/
+          ssh $SSH_OPTS ubuntu@$EC2_HOST "rm -f /var/www/electica/ecosystem.config.js"
 
           # Upload db.json only on first deploy (preserve live data)
           ssh $SSH_OPTS ubuntu@$EC2_HOST "test -f /var/www/electica/db.json" || scp $SSH_OPTS db.json ubuntu@$EC2_HOST:/var/www/electica/
@@ -89,7 +90,7 @@ jobs:
           "'
 
           # Restart API (delete + start to pick up ecosystem config changes)
-          ssh $SSH_OPTS ubuntu@$EC2_HOST "cd /var/www/electica && pm2 delete electica-api 2>/dev/null; pm2 start ecosystem.config.js && pm2 save"
+          ssh $SSH_OPTS ubuntu@$EC2_HOST "cd /var/www/electica && pm2 delete electica-api 2>/dev/null; pm2 start ecosystem.config.cjs && pm2 save"
 
           # Clean up
           rm -f deploy_key.pem
