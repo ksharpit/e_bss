@@ -88,8 +88,8 @@ jobs:
             console.log(\"Auth hashes verified/patched\");
           "'
 
-          # Restart API
-          ssh $SSH_OPTS ubuntu@$EC2_HOST "cd /var/www/electica && pm2 restart electica-api"
+          # Restart API (delete + start to pick up ecosystem config changes)
+          ssh $SSH_OPTS ubuntu@$EC2_HOST "cd /var/www/electica && pm2 delete electica-api 2>/dev/null; pm2 start ecosystem.config.js && pm2 save"
 
           # Clean up
           rm -f deploy_key.pem
