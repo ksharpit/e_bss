@@ -1,40 +1,13 @@
-// Electica BSS - Express Backend
-// Replaces json-server with real CRUD + JWT authentication
-
-import { readFileSync, writeFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+// Electica BSS - Express Backend with PostgreSQL + TimescaleDB + MQTT
 import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import pool, { rowToCamel, bodyToSnake } from './db.js';
+import { initMqtt } from './mqtt.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const DB_PATH = join(__dirname, '..', 'db.json');
 const JWT_SECRET = process.env.JWT_SECRET || 'electica-bss-secret-key-change-in-production';
 const PORT = process.env.PORT || 3001;
-
-// ---------------------
-// Database helpers
-// ---------------------
-function readDb() {
-  return JSON.parse(readFileSync(DB_PATH, 'utf8'));
-}
-
-function writeDb(db) {
-  writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
-}
-
-function getCollection(name) {
-  const db = readDb();
-  return db[name] || [];
-}
-
-function saveCollection(name, data) {
-  const db = readDb();
-  db[name] = data;
-  writeDb(db);
-}
 
 // ---------------------
 // Express app
@@ -47,12 +20,8 @@ app.use(express.json());
 // Auth middleware
 // ---------------------
 function authMiddleware(req, res, next) {
-  // Auth enforcement flag - set to true once all apps have login
-  const ENFORCE_AUTH = true;
-
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
-    if (!ENFORCE_AUTH) return next();
     return res.status(401).json({ error: 'No token provided' });
   }
 
@@ -62,7 +31,6 @@ function authMiddleware(req, res, next) {
     req.user = decoded;
     next();
   } catch (err) {
-    if (!ENFORCE_AUTH) return next();
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
@@ -72,60 +40,70 @@ function authMiddleware(req, res, next) {
 // ---------------------
 
 // Admin login
-app.post('/auth/admin/login', (req, res) => {
+app.post('/auth/admin/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password required' });
   }
 
-  const admins = getCollection('admins');
-  const admin = admins.find(a => a.username === username);
-  if (!admin) {
-    return res.status(401).json({ error: 'Invalid credentials' });
+  try {
+    const { rows } = await pool.query('SELECT * FROM admins WHERE username = $1', [username]);
+    const admin = rows[0];
+    if (!admin) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const valid = bcrypt.compareSync(password, admin.password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign(
+      { id: admin.id, role: 'admin', name: admin.name },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({ token, user: { id: admin.id, name: admin.name, email: admin.email || '', role: 'admin' } });
+  } catch (err) {
+    console.error('Admin login error:', err.message);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  const valid = bcrypt.compareSync(password, admin.passwordHash);
-  if (!valid) {
-    return res.status(401).json({ error: 'Invalid credentials' });
-  }
-
-  const token = jwt.sign(
-    { id: admin.id, role: 'admin', name: admin.name },
-    JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-
-  res.json({ token, user: { id: admin.id, name: admin.name, email: admin.email || '', role: 'admin' } });
 });
 
 // Agent login
-app.post('/auth/agent/login', (req, res) => {
+app.post('/auth/agent/login', async (req, res) => {
   const { agentId, password } = req.body;
   if (!agentId || !password) {
     return res.status(400).json({ error: 'Agent ID and password required' });
   }
 
-  const agents = getCollection('agents');
-  const agent = agents.find(a => a.id === agentId);
-  if (!agent) {
-    return res.status(401).json({ error: 'Invalid credentials' });
+  try {
+    const { rows } = await pool.query('SELECT * FROM agents WHERE id = $1', [agentId]);
+    const agent = rows[0];
+    if (!agent) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const valid = bcrypt.compareSync(password, agent.password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign(
+      { id: agent.id, role: 'agent', name: agent.name, zone: agent.zone },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      token,
+      agent: { id: agent.id, name: agent.name, zone: agent.zone, role: 'agent' }
+    });
+  } catch (err) {
+    console.error('Agent login error:', err.message);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  const valid = bcrypt.compareSync(password, agent.passwordHash);
-  if (!valid) {
-    return res.status(401).json({ error: 'Invalid credentials' });
-  }
-
-  const token = jwt.sign(
-    { id: agent.id, role: 'agent', name: agent.name, zone: agent.zone },
-    JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-
-  res.json({
-    token,
-    agent: { id: agent.id, name: agent.name, zone: agent.zone, role: 'agent' }
-  });
 });
 
 // User - send OTP (demo: always succeeds)
@@ -134,87 +112,92 @@ app.post('/auth/user/send-otp', (req, res) => {
   if (!phone) {
     return res.status(400).json({ error: 'Phone number required' });
   }
-  // In production, integrate Twilio/MSG91 here
   res.json({ success: true, message: 'OTP sent' });
 });
 
 // User - verify OTP
-app.post('/auth/user/verify-otp', (req, res) => {
+app.post('/auth/user/verify-otp', async (req, res) => {
   const { phone, otp } = req.body;
   if (!phone || !otp) {
     return res.status(400).json({ error: 'Phone and OTP required' });
   }
 
-  // Demo: any 6-digit OTP works
   if (otp.length !== 6) {
     return res.status(400).json({ error: 'OTP must be 6 digits' });
   }
 
-  const users = getCollection('users');
-  const user = users.find(u => u.phone === phone);
+  try {
+    const { rows } = await pool.query('SELECT * FROM users WHERE phone = $1', [phone]);
+    const user = rows[0];
 
-  if (!user) {
-    return res.json({ success: true, isNewUser: true, phone });
+    if (!user) {
+      return res.json({ success: true, isNewUser: true, phone });
+    }
+
+    const u = rowToCamel(user);
+    const token = jwt.sign(
+      { id: u.id, role: 'user', name: u.name, phone: u.phone },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      success: true,
+      isNewUser: false,
+      token,
+      user: { id: u.id, name: u.name, phone: u.phone, kycStatus: u.kycStatus }
+    });
+  } catch (err) {
+    console.error('Verify OTP error:', err.message);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  const token = jwt.sign(
-    { id: user.id, role: 'user', name: user.name, phone: user.phone },
-    JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-
-  res.json({
-    success: true,
-    isNewUser: false,
-    token,
-    user: { id: user.id, name: user.name, phone: user.phone, kycStatus: user.kycStatus }
-  });
 });
 
-// User - register (new user after OTP)
-app.post('/auth/user/register', (req, res) => {
+// User - register
+app.post('/auth/user/register', async (req, res) => {
   const { name, phone, vehicle } = req.body;
   if (!name || !phone) {
     return res.status(400).json({ error: 'Name and phone required' });
   }
 
-  const users = getCollection('users');
+  try {
+    // Check if exists
+    const existing = await pool.query('SELECT id FROM users WHERE phone = $1', [phone]);
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: 'User already exists' });
+    }
 
-  // Check if already exists
-  if (users.find(u => u.phone === phone)) {
-    return res.status(409).json({ error: 'User already exists' });
+    // Generate next user ID
+    const { rows: maxRows } = await pool.query(
+      "SELECT id FROM users WHERE id ~ '^USR-[0-9]+$' ORDER BY id DESC LIMIT 1"
+    );
+    let nextNum = 1;
+    if (maxRows.length > 0) {
+      nextNum = parseInt(maxRows[0].id.replace('USR-', ''), 10) + 1;
+    }
+    const id = `USR-${String(nextNum).padStart(3, '0')}`;
+
+    await pool.query(`
+      INSERT INTO users (id, name, phone, vehicle, kyc_status, deposit_paid, registered_at)
+      VALUES ($1, $2, $3, $4, 'pending', false, NOW())
+    `, [id, name, phone, vehicle || '']);
+
+    const newUser = { id, name, phone, vehicle: vehicle || '', kycStatus: 'pending', depositPaid: false, batteryId: null, registeredAt: new Date().toISOString().split('T')[0], onboardedAt: null };
+
+    const token = jwt.sign(
+      { id, role: 'user', name, phone },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.status(201).json({ token, user: newUser });
+  } catch (err) {
+    console.error('Register error:', err.message);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  // Generate next user ID
-  const nums = users.map(u => parseInt(u.id.replace('USR-', ''), 10)).filter(n => !isNaN(n));
-  const nextNum = nums.length ? Math.max(...nums) + 1 : 1;
-  const id = `USR-${String(nextNum).padStart(3, '0')}`;
-
-  const newUser = {
-    id,
-    name,
-    phone,
-    vehicle: vehicle || '',
-    kycStatus: 'pending',
-    depositPaid: false,
-    batteryId: null,
-    registeredAt: new Date().toISOString().split('T')[0],
-    onboardedAt: null
-  };
-
-  users.push(newUser);
-  saveCollection('users', users);
-
-  const token = jwt.sign(
-    { id: newUser.id, role: 'user', name: newUser.name, phone: newUser.phone },
-    JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-
-  res.status(201).json({ token, user: newUser });
 });
 
-// Token validation endpoint
+// Token validation
 app.get('/auth/me', (req, res) => {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
@@ -230,144 +213,260 @@ app.get('/auth/me', (req, res) => {
 });
 
 // ---------------------
-// Generic CRUD routes (protected)
+// Telemetry endpoint
+// ---------------------
+
+// GET /telemetry/:batteryId - get recent telemetry for a battery
+app.get('/telemetry/:batteryId', authMiddleware, async (req, res) => {
+  const { batteryId } = req.params;
+  const hours = parseInt(req.query.hours) || 24;
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT time, voltage, current_draw, soc, soh, cycle_count,
+             pod_temp, cell_voltages, ntc_temps, pdu_temps
+      FROM battery_telemetry
+      WHERE battery_id = $1 AND time > NOW() - INTERVAL '1 hour' * $2
+      ORDER BY time DESC
+      LIMIT 500
+    `, [batteryId, hours]);
+
+    res.json(rows.map(rowToCamel));
+  } catch (err) {
+    console.error('Telemetry fetch error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /telemetry/:batteryId/latest - latest single reading
+app.get('/telemetry/:batteryId/latest', authMiddleware, async (req, res) => {
+  const { batteryId } = req.params;
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT time, voltage, current_draw, soc, soh, cycle_count,
+             cap_available, cap_initial, pod_temp,
+             cell_voltages, ntc_temps, pdu_temps
+      FROM battery_telemetry
+      WHERE battery_id = $1
+      ORDER BY time DESC LIMIT 1
+    `, [batteryId]);
+
+    res.json(rows.length > 0 ? rowToCamel(rows[0]) : null);
+  } catch (err) {
+    console.error('Telemetry latest error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ---------------------
+// Generic CRUD routes
 // ---------------------
 const COLLECTIONS = ['stations', 'batteries', 'users', 'swaps', 'transactions', 'tickets', 'agents'];
 
-// GET /collection - list with optional query filtering
-app.get('/:collection', authMiddleware, (req, res) => {
+// Query parameter keys to skip (pagination/sorting)
+const META_KEYS = new Set(['_sort', '_order', '_limit', '_start', '_page', '_per_page']);
+
+// GET /collection - list with filtering
+app.get('/:collection', authMiddleware, async (req, res) => {
   const { collection } = req.params;
   if (!COLLECTIONS.includes(collection)) {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  let items = getCollection(collection);
+  try {
+    let sql = `SELECT * FROM ${collection}`;
+    const params = [];
+    const conditions = [];
 
-  // Query parameter filtering (like json-server)
-  const query = req.query;
-  for (const [key, value] of Object.entries(query)) {
-    if (key === '_sort' || key === '_order' || key === '_limit' || key === '_start' || key === '_page' || key === '_per_page') continue;
-    items = items.filter(item => String(item[key]) === String(value));
+    // Query param filtering
+    for (const [key, value] of Object.entries(req.query)) {
+      if (META_KEYS.has(key)) continue;
+      const col = bodyToSnake({ [key]: value });
+      const colName = Object.keys(col)[0];
+      params.push(value);
+      conditions.push(`${colName}::text = $${params.length}`);
+    }
+
+    if (conditions.length > 0) {
+      sql += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    // Sorting
+    if (req.query._sort) {
+      const sortCol = bodyToSnake({ [req.query._sort]: null });
+      const sortField = Object.keys(sortCol)[0];
+      const order = req.query._order === 'desc' ? 'DESC' : 'ASC';
+      sql += ` ORDER BY ${sortField} ${order}`;
+    }
+
+    // Pagination
+    if (req.query._limit) {
+      const limit = parseInt(req.query._limit);
+      const start = parseInt(req.query._start) || 0;
+      sql += ` LIMIT ${limit} OFFSET ${start}`;
+    }
+
+    const { rows } = await pool.query(sql, params);
+    res.json(rows.map(rowToCamel));
+  } catch (err) {
+    console.error(`GET /${collection} error:`, err.message);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  // Sorting
-  if (query._sort) {
-    const field = query._sort;
-    const order = query._order === 'desc' ? -1 : 1;
-    items.sort((a, b) => {
-      if (a[field] < b[field]) return -1 * order;
-      if (a[field] > b[field]) return 1 * order;
-      return 0;
-    });
-  }
-
-  // Pagination
-  if (query._limit) {
-    const start = parseInt(query._start) || 0;
-    const limit = parseInt(query._limit);
-    items = items.slice(start, start + limit);
-  }
-
-  res.json(items);
 });
 
-// GET /collection/:id - single item
-app.get('/:collection/:id', authMiddleware, (req, res) => {
+// GET /collection/:id
+app.get('/:collection/:id', authMiddleware, async (req, res) => {
   const { collection, id } = req.params;
   if (!COLLECTIONS.includes(collection)) {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  const items = getCollection(collection);
-  const item = items.find(i => String(i.id) === String(id));
-  if (!item) {
-    return res.status(404).json({ error: 'Item not found' });
+  try {
+    const { rows } = await pool.query(`SELECT * FROM ${collection} WHERE id = $1`, [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    res.json(rowToCamel(rows[0]));
+  } catch (err) {
+    console.error(`GET /${collection}/${id} error:`, err.message);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  res.json(item);
 });
 
-// POST /collection - create
-app.post('/:collection', authMiddleware, (req, res) => {
+// POST /collection
+app.post('/:collection', authMiddleware, async (req, res) => {
   const { collection } = req.params;
   if (!COLLECTIONS.includes(collection)) {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  const items = getCollection(collection);
-  const newItem = req.body;
+  try {
+    const snakeBody = bodyToSnake(req.body);
+    if (!snakeBody.id) {
+      snakeBody.id = Date.now().toString();
+    }
 
-  // Auto-generate ID if not provided
-  if (!newItem.id) {
-    newItem.id = Date.now().toString();
+    const cols = Object.keys(snakeBody);
+    const vals = Object.values(snakeBody);
+    const placeholders = vals.map((_, i) => `$${i + 1}`);
+
+    await pool.query(
+      `INSERT INTO ${collection} (${cols.join(',')}) VALUES (${placeholders.join(',')})`,
+      vals
+    );
+
+    res.status(201).json(rowToCamel(snakeBody));
+  } catch (err) {
+    console.error(`POST /${collection} error:`, err.message);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  items.push(newItem);
-  saveCollection(collection, items);
-
-  res.status(201).json(newItem);
 });
 
-// PATCH /collection/:id - partial update
-app.patch('/:collection/:id', authMiddleware, (req, res) => {
+// PATCH /collection/:id
+app.patch('/:collection/:id', authMiddleware, async (req, res) => {
   const { collection, id } = req.params;
   if (!COLLECTIONS.includes(collection)) {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  const items = getCollection(collection);
-  const index = items.findIndex(i => String(i.id) === String(id));
-  if (index === -1) {
-    return res.status(404).json({ error: 'Item not found' });
+  try {
+    const snakeBody = bodyToSnake(req.body);
+    const cols = Object.keys(snakeBody);
+    const vals = Object.values(snakeBody);
+
+    if (cols.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    const setClause = cols.map((c, i) => `${c} = $${i + 1}`).join(', ');
+    vals.push(id);
+
+    const { rows } = await pool.query(
+      `UPDATE ${collection} SET ${setClause} WHERE id = $${vals.length} RETURNING *`,
+      vals
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    res.json(rowToCamel(rows[0]));
+  } catch (err) {
+    console.error(`PATCH /${collection}/${id} error:`, err.message);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  items[index] = { ...items[index], ...req.body };
-  saveCollection(collection, items);
-
-  res.json(items[index]);
 });
 
-// PUT /collection/:id - full replace
-app.put('/:collection/:id', authMiddleware, (req, res) => {
+// PUT /collection/:id
+app.put('/:collection/:id', authMiddleware, async (req, res) => {
   const { collection, id } = req.params;
   if (!COLLECTIONS.includes(collection)) {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  const items = getCollection(collection);
-  const index = items.findIndex(i => String(i.id) === String(id));
-  if (index === -1) {
-    return res.status(404).json({ error: 'Item not found' });
+  try {
+    const snakeBody = bodyToSnake(req.body);
+    snakeBody.id = id;
+    const cols = Object.keys(snakeBody);
+    const vals = Object.values(snakeBody);
+    const placeholders = vals.map((_, i) => `$${i + 1}`);
+
+    // Upsert
+    const setClause = cols.filter(c => c !== 'id').map((c, i) => `${c} = EXCLUDED.${c}`).join(', ');
+
+    const { rows } = await pool.query(
+      `INSERT INTO ${collection} (${cols.join(',')}) VALUES (${placeholders.join(',')})
+       ON CONFLICT (id) DO UPDATE SET ${setClause} RETURNING *`,
+      vals
+    );
+
+    res.json(rowToCamel(rows[0]));
+  } catch (err) {
+    console.error(`PUT /${collection}/${id} error:`, err.message);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  items[index] = { ...req.body, id };
-  saveCollection(collection, items);
-
-  res.json(items[index]);
 });
 
 // DELETE /collection/:id
-app.delete('/:collection/:id', authMiddleware, (req, res) => {
+app.delete('/:collection/:id', authMiddleware, async (req, res) => {
   const { collection, id } = req.params;
   if (!COLLECTIONS.includes(collection)) {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  const items = getCollection(collection);
-  const index = items.findIndex(i => String(i.id) === String(id));
-  if (index === -1) {
-    return res.status(404).json({ error: 'Item not found' });
+  try {
+    const { rows } = await pool.query(
+      `DELETE FROM ${collection} WHERE id = $1 RETURNING *`,
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    res.json(rowToCamel(rows[0]));
+  } catch (err) {
+    console.error(`DELETE /${collection}/${id} error:`, err.message);
+    res.status(500).json({ error: 'Server error' });
   }
-
-  const removed = items.splice(index, 1);
-  saveCollection(collection, items);
-
-  res.json(removed[0]);
 });
 
 // ---------------------
 // Start server
 // ---------------------
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`Electica BSS API running on port ${PORT}`);
+
+  // Test DB connection
+  try {
+    await pool.query('SELECT 1');
+    console.log('PostgreSQL connected');
+  } catch (err) {
+    console.error('PostgreSQL connection failed:', err.message);
+    console.error('API will return errors until database is available');
+  }
+
+  // Start MQTT client
+  initMqtt(pool);
 });

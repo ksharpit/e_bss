@@ -176,7 +176,10 @@ export async function renderInventory(container) {
           <h1 class="page-title">Battery Inventory</h1>
           <p class="page-desc">${batteries.length} total · ${atStation} at stations · ${deployed} with customers · ${stock} in stock</p>
         </div>
-        <button class="btn btn-outline" id="inventory-export-btn" style="display:flex;align-items:center;gap:6px">${icon(ICONS.download)} Export CSV</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" id="add-battery-btn" style="display:flex;align-items:center;gap:6px">${icon(ICONS.plus || 'add', '16px')} Add Battery</button>
+          <button class="btn btn-outline" id="inventory-export-btn" style="display:flex;align-items:center;gap:6px">${icon(ICONS.download)} Export CSV</button>
+        </div>
       </div>
 
       <div class="rev-kpi-grid" style="grid-template-columns:repeat(6,1fr);margin-bottom:1.25rem">
@@ -299,5 +302,133 @@ export async function renderInventory(container) {
       b._stationName || b.stationName || '',
     ]);
     downloadCsv('battery-inventory', headers, rows);
+  });
+
+  // Add Battery - onboarding modal
+  document.getElementById('add-battery-btn')?.addEventListener('click', () => {
+    // Generate next battery ID
+    const nums = batteries.map(b => parseInt(b.id.replace('BAT-', ''), 10)).filter(n => !isNaN(n));
+    const nextNum = nums.length ? Math.max(...nums) + 1 : 1;
+    const nextId = `BAT-${String(nextNum).padStart(4, '0')}`;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'add-battery-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px)';
+    overlay.innerHTML = `
+      <div style="width:440px;max-width:92vw;background:white;border-radius:20px;box-shadow:0 24px 80px rgba(0,0,0,0.2);overflow:hidden;animation:cardIn 0.3s ease-out">
+        <div style="padding:24px 28px 0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+            <div>
+              <h2 style="font-size:18px;font-weight:800;color:#1e293b">Onboard New Battery</h2>
+              <p style="font-size:12px;color:#94a3b8;margin-top:2px">Register a physical battery into the system</p>
+            </div>
+            <button id="close-add-battery" style="background:none;border:none;cursor:pointer;padding:4px;border-radius:8px;transition:background 0.15s" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">
+              <span class="material-symbols-outlined" style="font-size:20px;color:#94a3b8">close</span>
+            </button>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div>
+              <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;margin-bottom:5px">Battery ID</label>
+              <input id="new-bat-id" type="text" value="${nextId}" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:monospace;font-weight:700;color:#1e293b;background:#f8fafc;outline:none;box-sizing:border-box" />
+            </div>
+            <div>
+              <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;margin-bottom:5px">BMS Device ID <span style="color:#D4654A">*</span></label>
+              <input id="new-bat-device-id" type="number" placeholder="e.g. 1 (DI field from BMS)" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:inherit;color:#1e293b;background:white;outline:none;box-sizing:border-box;transition:border-color 0.15s" onfocus="this.style.borderColor='#D4654A'" onblur="this.style.borderColor='#e2e8f0'" />
+              <p style="font-size:10px;color:#94a3b8;margin-top:4px">Physical hardware ID printed on the BMS board or QR label</p>
+            </div>
+            <div>
+              <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;margin-bottom:5px">Assign to Station</label>
+              <select id="new-bat-station" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:inherit;color:#1e293b;background:white;outline:none;box-sizing:border-box;cursor:pointer">
+                <option value="">None (warehouse stock)</option>
+                ${stations.map(s => `<option value="${s.id}">${s.name} (${s.id})</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;margin-bottom:5px">Initial Status</label>
+              <select id="new-bat-status" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:inherit;color:#1e293b;background:white;outline:none;box-sizing:border-box;cursor:pointer">
+                <option value="stock">Stock (warehouse)</option>
+                <option value="available">Available (at station)</option>
+                <option value="charging">Charging</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div id="add-bat-error" style="display:none;margin:12px 28px 0;padding:10px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#ef4444;font-size:13px;font-weight:500"></div>
+
+        <div style="padding:20px 28px;display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+          <button id="cancel-add-battery" class="btn btn-outline" style="padding:10px 20px">Cancel</button>
+          <button id="confirm-add-battery" class="btn btn-primary" style="padding:10px 24px;display:flex;align-items:center;gap:6px">
+            <span class="material-symbols-outlined" style="font-size:16px">add</span> Onboard Battery
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const closeModal = () => overlay.remove();
+    document.getElementById('close-add-battery').addEventListener('click', closeModal);
+    document.getElementById('cancel-add-battery').addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+    document.getElementById('confirm-add-battery').addEventListener('click', async () => {
+      const batId = document.getElementById('new-bat-id').value.trim();
+      const deviceId = document.getElementById('new-bat-device-id').value.trim();
+      const stationId = document.getElementById('new-bat-station').value;
+      const status = document.getElementById('new-bat-status').value;
+      const errorEl = document.getElementById('add-bat-error');
+
+      if (!batId) { errorEl.textContent = 'Battery ID is required'; errorEl.style.display = 'block'; return; }
+      if (!deviceId) { errorEl.textContent = 'BMS Device ID is required for MQTT telemetry'; errorEl.style.display = 'block'; return; }
+
+      // Check for duplicate device ID
+      if (batteries.some(b => String(b.deviceId) === deviceId)) {
+        errorEl.textContent = `Device ID ${deviceId} is already registered to another battery`;
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      const btn = document.getElementById('confirm-add-battery');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;animation:spin 1s linear infinite">progress_activity</span> Saving...';
+
+      try {
+        const stName = stationId ? stations.find(s => s.id === stationId)?.name || '' : null;
+        const body = {
+          id: batId,
+          deviceId: parseInt(deviceId, 10),
+          stationId: stationId || null,
+          stationName: stName,
+          status,
+          assignedTo: null,
+          soc: 0,
+          health: 100,
+          cycleCount: 0,
+          temperature: 0,
+        };
+
+        const res = await apiFetch('/batteries', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Failed to create battery');
+        }
+
+        closeModal();
+        const { showToast } = await import('../utils/toast.js');
+        showToast(`Battery ${batId} onboarded (Device ID: ${deviceId})`, 'success');
+        renderInventory(container); // refresh
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">add</span> Onboard Battery';
+      }
+    });
   });
 }

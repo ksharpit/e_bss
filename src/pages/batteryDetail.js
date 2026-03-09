@@ -202,6 +202,90 @@ export async function renderBatteryDetail(container, batteryId) {
         </div>
       </div>
 
+      <!-- Live Telemetry Section (populated via API polling) -->
+      <div id="telemetry-section" class="card" style="padding:1.5rem;margin-bottom:1rem;display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite" id="telemetry-live-dot"></div>
+            <h3 style="font-size:var(--font-lg);font-weight:700;color:#1e293b">Live Telemetry</h3>
+            <span id="telemetry-timestamp" style="font-size:var(--font-xs);color:#94a3b8"></span>
+          </div>
+          <span style="padding:4px 12px;border-radius:8px;font-size:10px;font-weight:700;background:rgba(34,197,94,0.1);color:#22c55e;border:1px solid rgba(34,197,94,0.2)" id="telemetry-badge">MQTT LIVE</span>
+        </div>
+
+        <!-- Pack Stats Row -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.25rem">
+          <div style="padding:14px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;text-align:center">
+            <p style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Pack Voltage</p>
+            <h4 id="tele-voltage" style="font-size:1.3rem;font-weight:800;color:#1e293b">-</h4>
+            <span style="font-size:10px;color:#94a3b8">V</span>
+          </div>
+          <div style="padding:14px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;text-align:center">
+            <p style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Current</p>
+            <h4 id="tele-current" style="font-size:1.3rem;font-weight:800;color:#1e293b">-</h4>
+            <span style="font-size:10px;color:#94a3b8">A</span>
+          </div>
+          <div style="padding:14px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;text-align:center">
+            <p style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Capacity</p>
+            <h4 style="font-size:1.3rem;font-weight:800;color:#1e293b"><span id="tele-cap">-</span><span style="font-size:0.7em;color:#94a3b8;font-weight:600"> / <span id="tele-cap-init">-</span></span></h4>
+            <span style="font-size:10px;color:#94a3b8">Ah (avail / initial)</span>
+          </div>
+          <div style="padding:14px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;text-align:center">
+            <p style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Pod Temp</p>
+            <h4 id="tele-podtemp" style="font-size:1.3rem;font-weight:800;color:#1e293b">-</h4>
+            <span style="font-size:10px;color:#94a3b8">deg C</span>
+          </div>
+        </div>
+
+        <!-- Cell Voltages -->
+        <div style="margin-bottom:1.25rem">
+          <h4 style="font-size:var(--font-sm);font-weight:700;color:#475569;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+            <span class="material-symbols-outlined" style="font-size:16px;color:#D4654A">electric_bolt</span>
+            Cell Voltages (16S)
+          </h4>
+          <div id="cell-voltages-grid" style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px">
+            ${Array.from({length:16}, (_, i) => `
+              <div style="padding:8px 4px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;text-align:center">
+                <p style="font-size:8px;font-weight:700;color:#94a3b8;margin-bottom:2px">C${i+1}</p>
+                <p id="cell-v-${i}" style="font-size:12px;font-weight:800;color:#1e293b">-</p>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Temperature Sensors -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div>
+            <h4 style="font-size:var(--font-sm);font-weight:700;color:#475569;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+              <span class="material-symbols-outlined" style="font-size:16px;color:#D4654A">thermostat</span>
+              NTC Sensors (6)
+            </h4>
+            <div id="ntc-temps-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+              ${Array.from({length:6}, (_, i) => `
+                <div style="padding:8px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;text-align:center">
+                  <p style="font-size:8px;font-weight:700;color:#94a3b8;margin-bottom:2px">NTC${i+1}</p>
+                  <p id="ntc-t-${i}" style="font-size:13px;font-weight:800;color:#1e293b">-</p>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div>
+            <h4 style="font-size:var(--font-sm);font-weight:700;color:#475569;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+              <span class="material-symbols-outlined" style="font-size:16px;color:#D4654A">memory</span>
+              PDU Sensors (4)
+            </h4>
+            <div id="pdu-temps-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+              ${Array.from({length:4}, (_, i) => `
+                <div style="padding:8px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;text-align:center">
+                  <p style="font-size:8px;font-weight:700;color:#94a3b8;margin-bottom:2px">PDU${i+1}</p>
+                  <p id="pdu-t-${i}" style="font-size:13px;font-weight:800;color:#1e293b">-</p>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+
       ${battery.status === 'deployed' && battery.assignedTo && userMap[battery.assignedTo] ? `
       <!-- Assigned User Card -->
       <div class="card" style="padding:1.25rem;margin-bottom:1rem;display:flex;align-items:center;gap:1.25rem">
@@ -418,4 +502,118 @@ export async function renderBatteryDetail(container, batteryId) {
       },
     });
   }, 150);
+
+  // Fetch latest telemetry and populate the live section
+  async function loadTelemetry() {
+    try {
+      let t = null;
+      try {
+        const res = await apiFetch(`/telemetry/${bid}/latest`);
+        if (res.ok) t = await res.json();
+      } catch { /* API not available */ }
+
+      // Demo fallback when no real telemetry exists
+      if (!t || !t.time) {
+        const baseV = 3.2 + (battery.soc / 100) * 1.0;
+        t = {
+          time: new Date().toISOString(),
+          voltage: parseFloat((baseV * 16).toFixed(2)),
+          currentDraw: parseFloat((-1.2 + Math.random() * 2.4).toFixed(3)),
+          soc: battery.soc,
+          soh: battery.health,
+          cycleCount: battery.cycleCount || 0,
+          capAvailable: parseFloat((40 + Math.random() * 5).toFixed(1)),
+          capInitial: 48,
+          podTemp: parseFloat((28 + Math.random() * 8).toFixed(1)),
+          cellVoltages: Array.from({ length: 16 }, () => parseFloat((baseV + (Math.random() - 0.5) * 0.05).toFixed(3))),
+          ntcTemps: Array.from({ length: 6 }, () => parseFloat((30 + Math.random() * 5).toFixed(1))),
+          pduTemps: Array.from({ length: 4 }, () => parseFloat((32 + Math.random() * 6).toFixed(1))),
+          _demo: true,
+        };
+      }
+
+      // Show the section
+      const section = document.getElementById('telemetry-section');
+      if (section) section.style.display = 'block';
+
+      // Timestamp
+      const age = Math.round((Date.now() - new Date(t.time).getTime()) / 1000);
+      const tsEl = document.getElementById('telemetry-timestamp');
+      if (tsEl) {
+        if (age < 60) tsEl.textContent = `${age}s ago`;
+        else if (age < 3600) tsEl.textContent = `${Math.round(age/60)}m ago`;
+        else tsEl.textContent = `${Math.round(age/3600)}h ago`;
+      }
+
+      // Stale check (> 5 min = offline) or demo mode
+      const dot = document.getElementById('telemetry-live-dot');
+      const badge = document.getElementById('telemetry-badge');
+      if (t._demo) {
+        if (dot) dot.style.background = '#f59e0b';
+        if (badge) { badge.textContent = 'DEMO DATA'; badge.style.background = 'rgba(245,158,11,0.1)'; badge.style.color = '#f59e0b'; badge.style.borderColor = 'rgba(245,158,11,0.2)'; }
+      } else if (age > 300) {
+        if (dot) dot.style.background = '#94a3b8';
+        if (badge) { badge.textContent = 'OFFLINE'; badge.style.background = 'rgba(148,163,184,0.1)'; badge.style.color = '#94a3b8'; badge.style.borderColor = 'rgba(148,163,184,0.2)'; }
+      }
+
+      // Pack stats
+      const voltEl = document.getElementById('tele-voltage');
+      const currEl = document.getElementById('tele-current');
+      const capEl = document.getElementById('tele-cap');
+      const podEl = document.getElementById('tele-podtemp');
+      if (voltEl && t.voltage != null) voltEl.textContent = Number(t.voltage).toFixed(1);
+      if (currEl && t.currentDraw != null) currEl.textContent = Number(t.currentDraw).toFixed(2);
+      if (capEl && t.capAvailable != null) capEl.textContent = Number(t.capAvailable).toFixed(0);
+      const capInitEl = document.getElementById('tele-cap-init');
+      if (capInitEl && t.capInitial != null) capInitEl.textContent = Number(t.capInitial).toFixed(0);
+      if (podEl && t.podTemp != null) podEl.textContent = Number(t.podTemp).toFixed(1);
+
+      // Cell voltages
+      if (t.cellVoltages && Array.isArray(t.cellVoltages)) {
+        const minV = Math.min(...t.cellVoltages);
+        const maxV = Math.max(...t.cellVoltages);
+        t.cellVoltages.forEach((v, i) => {
+          const el = document.getElementById(`cell-v-${i}`);
+          if (el) {
+            el.textContent = Number(v).toFixed(3);
+            // Highlight imbalanced cells
+            if (maxV - minV > 0.1 && (v === minV || v === maxV)) {
+              el.style.color = v === minV ? '#b43c28' : '#22c55e';
+            }
+          }
+        });
+      }
+
+      // NTC temps
+      if (t.ntcTemps && Array.isArray(t.ntcTemps)) {
+        t.ntcTemps.forEach((temp, i) => {
+          const el = document.getElementById(`ntc-t-${i}`);
+          if (el) {
+            el.textContent = Number(temp).toFixed(1) + '\u00B0';
+            if (temp > 55) el.style.color = '#b43c28';
+            else if (temp > 40) el.style.color = '#d97706';
+          }
+        });
+      }
+
+      // PDU temps
+      if (t.pduTemps && Array.isArray(t.pduTemps)) {
+        t.pduTemps.forEach((temp, i) => {
+          const el = document.getElementById(`pdu-t-${i}`);
+          if (el) {
+            el.textContent = Number(temp).toFixed(1) + '\u00B0';
+            if (temp > 55) el.style.color = '#b43c28';
+            else if (temp > 40) el.style.color = '#d97706';
+          }
+        });
+      }
+    } catch { /* telemetry not available yet */ }
+  }
+
+  // Initial load + poll every 10s
+  loadTelemetry();
+  const teleInterval = setInterval(loadTelemetry, 10000);
+
+  // Cleanup interval on page navigation
+  window.addEventListener('hashchange', () => clearInterval(teleInterval), { once: true });
 }

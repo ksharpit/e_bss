@@ -58,38 +58,14 @@ jobs:
           # Upload server + config files
           scp $SSH_OPTS -r server ubuntu@$EC2_HOST:/var/www/electica/
           scp $SSH_OPTS package.json package-lock.json deploy/ecosystem.config.cjs ubuntu@$EC2_HOST:/var/www/electica/
-          ssh $SSH_OPTS ubuntu@$EC2_HOST "rm -f /var/www/electica/ecosystem.config.js"
-
-          # Upload db.json only on first deploy (preserve live data)
-          ssh $SSH_OPTS ubuntu@$EC2_HOST "test -f /var/www/electica/db.json" || scp $SSH_OPTS db.json ubuntu@$EC2_HOST:/var/www/electica/
 
           # Install production deps
           ssh $SSH_OPTS ubuntu@$EC2_HOST "cd /var/www/electica && npm ci --omit=dev"
 
-          # Patch auth hashes in live db.json (preserves all other data)
-          ssh $SSH_OPTS ubuntu@$EC2_HOST 'cd /var/www/electica && node -e "
-            const fs = require(\"fs\");
-            const bcrypt = require(\"bcryptjs\");
-            const db = JSON.parse(fs.readFileSync(\"db.json\", \"utf8\"));
-            if (!db.admins) db.admins = [];
-            if (!db.agents) db.agents = [];
-            const adm = db.admins.find(a => a.username === \"admin\");
-            if (adm && !bcrypt.compareSync(\"admin123\", adm.passwordHash)) {
-              adm.passwordHash = bcrypt.hashSync(\"admin123\", 10);
-            }
-            if (db.admins.length === 0) {
-              db.admins.push({ id: \"ADM-001\", username: \"admin\", name: \"System Admin\", passwordHash: bcrypt.hashSync(\"admin123\", 10) });
-            }
-            db.agents.forEach(a => {
-              if (!bcrypt.compareSync(\"agent123\", a.passwordHash)) {
-                a.passwordHash = bcrypt.hashSync(\"agent123\", 10);
-              }
-            });
-            fs.writeFileSync(\"db.json\", JSON.stringify(db, null, 2));
-            console.log(\"Auth hashes verified/patched\");
-          "'
+          # Run schema migration (idempotent - safe to run every deploy)
+          ssh $SSH_OPTS ubuntu@$EC2_HOST "cd /var/www/electica && sudo -u postgres psql -d electica_bss -f server/schema.sql 2>/dev/null || echo 'Schema migration skipped (DB not yet set up)'"
 
-          # Restart API (delete + start to pick up ecosystem config changes)
+          # Restart API (delete + start to pick up config changes)
           ssh $SSH_OPTS ubuntu@$EC2_HOST "cd /var/www/electica && pm2 delete electica-api 2>/dev/null; pm2 start ecosystem.config.cjs && pm2 save"
 
           # Clean up
