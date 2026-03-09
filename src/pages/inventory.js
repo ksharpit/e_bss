@@ -50,9 +50,12 @@ function rowHTML(b) {
     <!-- Battery ID + Status -->
     <div style="min-width:120px;flex:1">
       <p style="font-size:var(--font-base);font-weight:700;color:var(--text-primary);letter-spacing:-0.01em;font-family:monospace">${b.id}</p>
-      <span style="display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:var(--radius-full);font-size:10px;font-weight:700;background:${st.bg};color:${st.color};border:1px solid ${st.border};margin-top:2px">
-        <span style="width:4px;height:4px;border-radius:50%;background:${st.dot}"></span>${st.label}
-      </span>
+      <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
+        <span style="display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:var(--radius-full);font-size:10px;font-weight:700;background:${st.bg};color:${st.color};border:1px solid ${st.border}">
+          <span style="width:4px;height:4px;border-radius:50%;background:${st.dot}"></span>${st.label}
+        </span>
+        ${b.deviceId ? `<span style="font-size:9px;font-weight:700;color:#94a3b8;font-family:monospace">DI:${b.deviceId}</span>` : ''}
+      </div>
     </div>
     <!-- Location / User -->
     <div style="min-width:130px;flex:1.2">

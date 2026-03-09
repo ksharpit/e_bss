@@ -128,7 +128,7 @@ export async function renderBatteryDetail(container, batteryId) {
               <span class="material-symbols-outlined" style="font-size:16px">${locationIcon}</span>
               ${locationLabel}
             </div>
-            <p style="font-size:var(--font-xs);color:#94a3b8;margin-top:4px">Last swap: ${lastSwapStr}</p>
+            <p style="font-size:var(--font-xs);color:#94a3b8;margin-top:4px">${battery.deviceId ? `<span style="font-family:monospace;background:rgba(212,101,74,0.08);padding:2px 8px;border-radius:6px;color:#D4654A;font-weight:700;margin-right:8px">DI: ${battery.deviceId}</span>` : ''}Last swap: ${lastSwapStr}</p>
           </div>
 
           <!-- Quick Stats Chips -->
