@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS batteries (
     current_draw    NUMERIC(12,3) DEFAULT 0, -- current in amps
     last_swap       TIMESTAMPTZ,
     last_telemetry  TIMESTAMPTZ,             -- last MQTT data received
+    cap_initial     NUMERIC(10,2),           -- initial capacity (Ah) from BMS
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 

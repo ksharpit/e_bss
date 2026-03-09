@@ -82,9 +82,46 @@ export async function refreshDeviceMap(pool) {
   await loadDeviceMap(pool);
 }
 
+// Auto-discover: create battery record for unknown device IDs
+async function autoDiscoverBattery(pool, deviceId, data) {
+  // Generate next BAT-XXXX ID
+  const { rows } = await pool.query(
+    `SELECT id FROM batteries ORDER BY id DESC LIMIT 1`
+  );
+  let nextNum = 1;
+  if (rows.length > 0) {
+    const match = rows[0].id.match(/BAT-(\d+)/);
+    if (match) nextNum = parseInt(match[1], 10) + 1;
+  }
+  const batteryId = `BAT-${String(nextNum).padStart(4, '0')}`;
+
+  // Extract initial capacity from first telemetry if available
+  const capInit = data.Telemetry?.Cap_init ?? null;
+
+  await pool.query(`
+    INSERT INTO batteries (id, device_id, status, soc, health, cycle_count, temperature, voltage, cap_initial)
+    VALUES ($1, $2, 'stock', 0, 100, 0, 0, 0, $3)
+    ON CONFLICT (device_id) DO NOTHING
+  `, [batteryId, deviceId, capInit]);
+
+  // Update cache
+  deviceMap.set(deviceId, batteryId);
+  console.log(`Auto-discovered battery: ${batteryId} (device ${deviceId})`);
+  return batteryId;
+}
+
 // Handle incoming telemetry from BMS
 async function handleTelemetry(pool, deviceId, data) {
-  const batteryId = deviceMap.get(deviceId);
+  let batteryId = deviceMap.get(deviceId);
+
+  // Auto-discover unknown devices
+  if (!batteryId) {
+    try {
+      batteryId = await autoDiscoverBattery(pool, deviceId, data);
+    } catch (err) {
+      console.error(`Auto-discover failed (device ${deviceId}):`, err.message);
+    }
+  }
 
   // Scale raw values
   const soc = data.Telemetry?.Soc != null ? data.Telemetry.Soc / SCALE.soc : null;
@@ -109,8 +146,7 @@ async function handleTelemetry(pool, deviceId, data) {
     `, [now, deviceId, batteryId, voltage, currentDraw, soc, soh, cycleCount, capAvailable, capInitial, podTemp, cellVoltages, ntcTemps, pduTemps]);
 
     // Update battery record with latest values
-    if (batteryId) {
-      await pool.query(`
+    if (batteryId) await pool.query(`
         UPDATE batteries SET
           soc = COALESCE($1, soc),
           health = COALESCE($2, health),
@@ -121,7 +157,6 @@ async function handleTelemetry(pool, deviceId, data) {
           last_telemetry = $7
         WHERE id = $8
       `, [soc, soh, voltage, currentDraw, cycleCount, podTemp, now, batteryId]);
-    }
   } catch (err) {
     console.error(`Telemetry insert error (device ${deviceId}):`, err.message);
   }
