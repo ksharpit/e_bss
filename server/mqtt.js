@@ -3,11 +3,15 @@ import mqtt from 'mqtt';
 
 const BROKER_URL = process.env.MQTT_BROKER || 'mqtt://localhost:1883';
 
-// Topics - ESP32 firmware publishes to 'esp32/data'
-// Also support per-device topics for future use
-const TOPIC_ESP32_DATA = 'esp32/data';
+// Topics the ESP32 firmware publishes to
+const TOPIC_ESP32_DATA = 'esp32/data';       // from initial firmware
+const TOPIC_ESP32_ET = 'ET/MS/T';            // from MQTT team firmware
 const TOPIC_TELEMETRY = 'electica/battery/+/telemetry';
 const TOPIC_STATUS = 'electica/battery/+/status';
+
+// ACK topic for ESP32 confirmation (server -> ESP32)
+const TOPIC_ESP32_ACK_PREFIX = 'esp32/ack';
+const TOPIC_ESP32_ER = 'ER/CM/R';            // ESP32 command topic
 
 // Device ID -> battery ID cache (avoid DB lookup on every message)
 const deviceMap = new Map();
@@ -24,9 +28,10 @@ export function initMqtt(pool) {
   mqttClient.on('connect', () => {
     console.log(`MQTT connected to ${BROKER_URL}`);
     mqttClient.subscribe(TOPIC_ESP32_DATA, { qos: 1 });
+    mqttClient.subscribe(TOPIC_ESP32_ET, { qos: 1 });
     mqttClient.subscribe(TOPIC_TELEMETRY, { qos: 1 });
     mqttClient.subscribe(TOPIC_STATUS, { qos: 1 });
-    console.log(`MQTT subscribed to: ${TOPIC_ESP32_DATA}, ${TOPIC_TELEMETRY}, ${TOPIC_STATUS}`);
+    console.log(`MQTT subscribed to: ${TOPIC_ESP32_DATA}, ${TOPIC_ESP32_ET}, ${TOPIC_TELEMETRY}, ${TOPIC_STATUS}`);
 
     // Pre-load device map
     loadDeviceMap(pool);
@@ -36,11 +41,11 @@ export function initMqtt(pool) {
     try {
       const data = JSON.parse(message.toString());
 
-      if (topic === TOPIC_ESP32_DATA) {
+      if (topic === TOPIC_ESP32_DATA || topic === TOPIC_ESP32_ET) {
         // ESP32 firmware format: { ts, device_id, telemetry, cells_v, ntc_temp, pdu_temp }
         const deviceId = String(data.device_id || data.DI || '');
         if (!deviceId) {
-          console.warn('MQTT: message on esp32/data missing device_id');
+          console.warn(`MQTT: message on ${topic} missing device_id`);
           return;
         }
         const normalized = normalizePayload(data);
@@ -205,7 +210,8 @@ async function handleTelemetry(pool, deviceId, data) {
         battery_id: batteryId,
         time: now.toISOString(),
       });
-      mqttClient.publish(`esp32/ack/${deviceId}`, ack);
+      mqttClient.publish(`${TOPIC_ESP32_ACK_PREFIX}/${deviceId}`, ack);
+      mqttClient.publish(TOPIC_ESP32_ER, ack);  // also send to ESP32 command topic
     }
   } catch (err) {
     console.error(`Telemetry insert error (device ${deviceId}):`, err.message);
