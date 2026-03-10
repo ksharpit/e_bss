@@ -723,7 +723,8 @@ function showReplySheet(container, agent, ticket, userMap) {
 
   // Provider is the originator for: provider_ticket, fault_report, repair_request
   const providerIsOriginator = isProviderTicket || isFault || isRepair;
-  const canResolve = providerIsOriginator && ticket.status === 'open';
+  // Provider can only resolve general provider_tickets, NOT fault_report or repair_request (admin approval required)
+  const canResolve = isProviderTicket && ticket.status === 'open';
   const isResolved = ticket.status === 'resolved' || ticket.status === 'closed';
 
   // Build conversation thread
