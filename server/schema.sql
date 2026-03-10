@@ -110,6 +110,9 @@ CREATE TABLE IF NOT EXISTS tickets (
     response        TEXT,
     responded_by    TEXT,
     responded_at    TIMESTAMPTZ,
+    replies         JSONB DEFAULT '[]'::jsonb,
+    resolved_at     TIMESTAMPTZ,
+    approved_by     TEXT,
     timestamp       TIMESTAMPTZ DEFAULT NOW()
 );
 

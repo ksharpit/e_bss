@@ -48,6 +48,8 @@ const COL_MAP = {
   targetAgentId: 'target_agent_id',
   respondedBy: 'responded_by',
   respondedAt: 'responded_at',
+  resolvedAt: 'resolved_at',
+  approvedBy: 'approved_by',
   // admins
   passwordHash: 'password_hash',
   // common

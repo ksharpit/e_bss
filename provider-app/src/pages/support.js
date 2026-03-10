@@ -81,10 +81,16 @@ export async function renderSupport(container, agent) {
   const userMap = {};
   allUsers.forEach(u => { userMap[u.id] = u.name; });
 
-  // Non-fault batteries (for fault reporting)
-  const reportableBatteries = batteries.filter(b => b.status !== 'fault' && b.status !== 'stock');
-  // Fault batteries (for repair requests)
-  const faultBatteries = batteries.filter(b => b.status === 'fault');
+  // Non-fault batteries (for fault reporting) - exclude batteries with open fault tickets
+  const batteriesWithOpenFault = new Set(
+    tickets.filter(t => t.type === 'fault_report' && t.status === 'open').map(t => t.batteryId)
+  );
+  const reportableBatteries = batteries.filter(b => b.status !== 'fault' && b.status !== 'stock' && !batteriesWithOpenFault.has(b.id));
+  // Fault batteries (for repair requests) - exclude batteries with open repair tickets
+  const batteriesWithOpenRepair = new Set(
+    tickets.filter(t => t.type === 'repair_request' && t.status === 'open').map(t => t.batteryId)
+  );
+  const faultBatteries = batteries.filter(b => b.status === 'fault' && !batteriesWithOpenRepair.has(b.id));
 
   const initials = agent.name.split(' ').map(w => w[0]).join('').slice(0, 2);
 
