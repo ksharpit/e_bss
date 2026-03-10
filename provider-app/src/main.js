@@ -8,6 +8,7 @@ import { renderConfirmation }   from './pages/confirmation.js';
 import { renderCustomerDetail } from './pages/customerDetail.js';
 import { renderResubmit }       from './pages/resubmit.js';
 import { renderSupport }        from './pages/support.js';
+import { renderBatteries }      from './pages/batteries.js';
 import { renderLogin }          from './pages/login.js';
 import { showToast }            from './utils/toast.js';
 import { getToken, getAgent, clearToken, apiFetch } from './utils/apiFetch.js';
@@ -52,6 +53,10 @@ function render() {
       <button class="nav-item ${currentTab === 'home' ? 'active' : ''}" data-tab="home">
         <span class="material-symbols-outlined">home</span>
         Home
+      </button>
+      <button class="nav-item ${currentTab === 'batteries' ? 'active' : ''}" data-tab="batteries">
+        <span class="material-symbols-outlined">battery_full</span>
+        Batteries
       </button>
       <button class="nav-fab" id="nav-register-fab">
         <div class="nav-fab-circle"><span class="material-symbols-outlined">person_add</span></div>
@@ -126,6 +131,8 @@ function renderPage() {
     renderRegister(content, AGENT, (userId, userName) => {
       overlay = { type: 'confirm', data: { userId, userName } }; render();
     });
+  } else if (currentTab === 'batteries') {
+    renderBatteries(content);
   } else if (currentTab === 'support') {
     renderSupport(content, AGENT);
   }
