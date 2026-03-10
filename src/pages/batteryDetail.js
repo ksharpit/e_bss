@@ -194,7 +194,7 @@ export async function renderBatteryDetail(container, batteryId) {
           <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.75rem">
             <div>
               <h3 style="font-size:var(--font-lg);font-weight:700;color:#1e293b;margin-bottom:2px">Health Trend (SOH)</h3>
-              <p style="font-size:var(--font-xs);color:#94a3b8">Current: <strong style="color:${healthColor}">${battery.health}%</strong></p>
+              <p style="font-size:var(--font-xs);color:#94a3b8">Current: <strong style="color:${healthColor}">${Number(battery.health).toFixed(2)}%</strong></p>
             </div>
             <span style="padding:4px 10px;border-radius:8px;font-size:10px;font-weight:700;background:${healthColor}12;color:${healthColor};border:1px solid ${healthColor}25">${healthLabel}</span>
           </div>
@@ -210,7 +210,12 @@ export async function renderBatteryDetail(container, batteryId) {
             <h3 style="font-size:var(--font-lg);font-weight:700;color:#1e293b">Live Telemetry</h3>
             <span id="telemetry-timestamp" style="font-size:var(--font-xs);color:#94a3b8"></span>
           </div>
-          <span style="padding:4px 12px;border-radius:8px;font-size:10px;font-weight:700;background:rgba(34,197,94,0.1);color:#22c55e;border:1px solid rgba(34,197,94,0.2)" id="telemetry-badge">MQTT LIVE</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button id="telemetry-refresh-btn" style="display:flex;align-items:center;gap:4px;padding:4px 12px;border-radius:8px;font-size:10px;font-weight:700;background:rgba(212,101,74,0.08);color:#D4654A;border:1px solid rgba(212,101,74,0.2);cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='rgba(212,101,74,0.15)'" onmouseout="this.style.background='rgba(212,101,74,0.08)'">
+              <span class="material-symbols-outlined" style="font-size:14px">refresh</span> Refresh
+            </button>
+            <span style="padding:4px 12px;border-radius:8px;font-size:10px;font-weight:700;background:rgba(34,197,94,0.1);color:#22c55e;border:1px solid rgba(34,197,94,0.2)" id="telemetry-badge">MQTT LIVE</span>
+          </div>
         </div>
 
         <!-- Pack Stats Row -->
@@ -407,8 +412,8 @@ export async function renderBatteryDetail(container, batteryId) {
     toast('Swap history exported', 'success');
   });
 
-  // SOH Chart
-  setTimeout(() => {
+  // SOH Chart - fetch real telemetry data
+  setTimeout(async () => {
     const sohCanvas = document.getElementById('soh-chart');
     if (!sohCanvas) return;
     if (sohChartInstance) sohChartInstance.destroy();
@@ -418,21 +423,50 @@ export async function renderBatteryDetail(container, batteryId) {
     gradient.addColorStop(0, 'rgba(212,101,74,0.18)');
     gradient.addColorStop(1, 'rgba(212,101,74,0)');
 
-    // Generate realistic SOH degradation trend based on current health
-    const currentHealth = battery.health || 95;
-    const months = ['6 mo ago', '5 mo ago', '4 mo ago', '3 mo ago', '2 mo ago', 'Now'];
-    const monthsFull = ['6 Months Ago', '5 Months Ago', '4 Months Ago', '3 Months Ago', '2 Months Ago', 'Current'];
-    // Simulate degradation: health was higher in past months
-    const sohValues = [];
-    for (let i = 5; i >= 0; i--) {
-      const degradation = Math.round(i * (100 - currentHealth) / 8);
-      sohValues.push(Math.min(100, currentHealth + degradation));
+    // Fetch real telemetry history (up to 720 hours = 30 days)
+    let sohLabels = [];
+    let sohValues = [];
+    let sohLabelsFull = [];
+    try {
+      const res = await apiFetch(`/telemetry/${bid}?hours=720`);
+      if (res.ok) {
+        const rows = await res.json();
+        if (rows.length > 0) {
+          // Group by day, take average SOH per day
+          const dayMap = new Map();
+          rows.forEach(r => {
+            if (r.soh == null) return;
+            const d = new Date(r.time);
+            const key = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+            if (!dayMap.has(key)) dayMap.set(key, { sum: 0, count: 0, date: d });
+            const entry = dayMap.get(key);
+            entry.sum += Number(r.soh);
+            entry.count++;
+          });
+          // Convert to arrays (oldest first, max 10 points)
+          const entries = [...dayMap.entries()].reverse();
+          const step = Math.max(1, Math.floor(entries.length / 10));
+          for (let i = 0; i < entries.length; i += step) {
+            const [label, data] = entries[i];
+            sohLabels.push(label);
+            sohValues.push(parseFloat((data.sum / data.count).toFixed(2)));
+            sohLabelsFull.push(data.date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }));
+          }
+        }
+      }
+    } catch { /* telemetry API not available */ }
+
+    // If no real data, show single current point
+    if (sohValues.length === 0) {
+      sohLabels = ['Now'];
+      sohValues = [parseFloat(Number(battery.health || 0).toFixed(2))];
+      sohLabelsFull = ['Current'];
     }
 
     sohChartInstance = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: months,
+        labels: sohLabels,
         datasets: [{
           data: sohValues,
           borderColor: '#D4654A',
@@ -472,16 +506,16 @@ export async function renderBatteryDetail(container, batteryId) {
               const i = tooltip.dataPoints[0].dataIndex;
               const val = sohValues[i];
               const prev = i > 0 ? sohValues[i - 1] : val;
-              const delta = val - prev;
+              const delta = parseFloat((val - prev).toFixed(2));
               const arrow = delta === 0 ? '-' : (delta > 0 ? '▲' : '▼');
               const trendColor = delta >= 0 ? '#D4654A' : '#b43c28';
 
               el.innerHTML = `
                 <div style="background:#0f172a;color:white;border-radius:12px;padding:12px 18px;box-shadow:0 8px 24px rgba(0,0,0,0.4);min-width:140px">
-                  <p style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">${monthsFull[i]}</p>
+                  <p style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">${sohLabelsFull[i]}</p>
                   <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:3px">
-                    <span style="font-size:1.4rem;font-weight:800;color:#D4654A">${val}%</span>
-                    <span style="font-size:11px;font-weight:700;color:${trendColor}">${arrow}${Math.abs(delta) > 0 ? ' ' + Math.abs(delta) + '%' : ''}</span>
+                    <span style="font-size:1.4rem;font-weight:800;color:#D4654A">${val.toFixed(2)}%</span>
+                    <span style="font-size:11px;font-weight:700;color:${trendColor}">${arrow}${Math.abs(delta) > 0 ? ' ' + Math.abs(delta).toFixed(2) + '%' : ''}</span>
                   </div>
                   <p style="font-size:10px;color:#475569">State of Health</p>
                 </div>
@@ -497,7 +531,7 @@ export async function renderBatteryDetail(container, batteryId) {
         },
         scales: {
           x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 9, weight: '700' } } },
-          y: { display: false, min: Math.min(...sohValues) - 5, max: 102 },
+          y: { display: false, min: Math.max(0, Math.min(...sohValues) - 5), max: Math.min(102, Math.max(...sohValues) + 5) },
         },
       },
     });
@@ -613,6 +647,22 @@ export async function renderBatteryDetail(container, batteryId) {
   // Initial load + poll every 10s
   loadTelemetry();
   const teleInterval = setInterval(loadTelemetry, 10000);
+
+  // Manual refresh button
+  document.getElementById('telemetry-refresh-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('telemetry-refresh-btn');
+    if (btn) {
+      const iconEl = btn.querySelector('.material-symbols-outlined');
+      if (iconEl) iconEl.style.animation = 'spin 0.5s linear';
+      btn.disabled = true;
+    }
+    await loadTelemetry();
+    if (btn) {
+      const iconEl = btn.querySelector('.material-symbols-outlined');
+      if (iconEl) iconEl.style.animation = '';
+      btn.disabled = false;
+    }
+  });
 
   // Cleanup interval on page navigation
   window.addEventListener('hashchange', () => clearInterval(teleInterval), { once: true });

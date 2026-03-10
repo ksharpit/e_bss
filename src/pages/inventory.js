@@ -165,6 +165,13 @@ export async function renderInventory(container) {
     b._swapCount = swaps.filter(s => s.batteryOut === b.id || s.batteryIn === b.id).length;
   });
 
+  // Sort newest first (most recent telemetry, then most recently created)
+  batteries.sort((a, b) => {
+    const aTime = a.lastTelemetry || a.createdAt || '';
+    const bTime = b.lastTelemetry || b.createdAt || '';
+    return bTime > aTime ? 1 : bTime < aTime ? -1 : 0;
+  });
+
   const deployed  = batteries.filter(b => b.status === 'deployed').length;
   const available = batteries.filter(b => b.status === 'available').length;
   const charging  = batteries.filter(b => b.status === 'charging').length;

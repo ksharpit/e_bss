@@ -48,6 +48,7 @@ export function initMqtt(pool) {
           console.warn(`MQTT: message on ${topic} missing device_id`);
           return;
         }
+        console.log(`MQTT [${topic}] device=${deviceId} format=${data.telemetry ? 'ESP32' : 'Legacy'} raw_keys=${Object.keys(data).join(',')}`);
         const normalized = normalizePayload(data);
         handleTelemetry(pool, deviceId, normalized);
       } else {
@@ -108,7 +109,7 @@ function normalizePayload(data) {
   return {
     voltage: t.Volt ?? null,
     currentDraw: t.Curr ?? null,
-    soc: t.Soc != null ? t.Soc / 1000 : null,
+    soc: t.Soc != null ? t.Soc / 100 : null,
     soh: t.Soh != null ? t.Soh / 1000 : null,
     cycleCount: t.Cycle != null ? Math.round(t.Cycle) : null,
     capAvailable: t.Cap_avail ?? null,
