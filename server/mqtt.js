@@ -196,6 +196,17 @@ async function handleTelemetry(pool, deviceId, data) {
           last_telemetry = $7
         WHERE id = $8
       `, [soc, soh, voltage, currentDraw, cycleCount, podTemp, now, batteryId]);
+
+    // Send ACK back to ESP32 so it knows data was received
+    if (mqttClient && mqttClient.connected) {
+      const ack = JSON.stringify({
+        status: 'ok',
+        device_id: deviceId,
+        battery_id: batteryId,
+        time: now.toISOString(),
+      });
+      mqttClient.publish(`esp32/ack/${deviceId}`, ack);
+    }
   } catch (err) {
     console.error(`Telemetry insert error (device ${deviceId}):`, err.message);
   }
