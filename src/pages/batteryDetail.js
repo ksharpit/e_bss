@@ -590,17 +590,17 @@ export async function renderBatteryDetail(container, batteryId) {
         if (badge) { badge.textContent = 'OFFLINE'; badge.style.background = 'rgba(148,163,184,0.1)'; badge.style.color = '#94a3b8'; badge.style.borderColor = 'rgba(148,163,184,0.2)'; }
       }
 
-      // Pack stats
+      // Pack stats - only update if value is non-zero (skip empty BMS readings)
       const voltEl = document.getElementById('tele-voltage');
       const currEl = document.getElementById('tele-current');
       const capEl = document.getElementById('tele-cap');
       const podEl = document.getElementById('tele-podtemp');
-      if (voltEl && t.voltage != null) voltEl.textContent = Number(t.voltage).toFixed(1);
-      if (currEl && t.currentDraw != null) currEl.textContent = Number(t.currentDraw).toFixed(2);
-      if (capEl && t.capAvailable != null) capEl.textContent = Number(t.capAvailable).toFixed(0);
+      if (voltEl && t.voltage != null && Number(t.voltage) > 0) voltEl.textContent = Number(t.voltage).toFixed(1);
+      if (currEl && t.currentDraw != null) currEl.textContent = Number(t.currentDraw).toFixed(2); // current can be 0 (no load)
+      if (capEl && t.capAvailable != null && Number(t.capAvailable) > 0) capEl.textContent = Number(t.capAvailable).toFixed(0);
       const capInitEl = document.getElementById('tele-cap-init');
-      if (capInitEl && t.capInitial != null) capInitEl.textContent = Number(t.capInitial).toFixed(0);
-      if (podEl && t.podTemp != null) podEl.textContent = Number(t.podTemp).toFixed(1);
+      if (capInitEl && t.capInitial != null && Number(t.capInitial) > 0) capInitEl.textContent = Number(t.capInitial).toFixed(0);
+      if (podEl && t.podTemp != null && Number(t.podTemp) > 0) podEl.textContent = Number(t.podTemp).toFixed(1);
 
       // Cell voltages
       if (t.cellVoltages && Array.isArray(t.cellVoltages)) {

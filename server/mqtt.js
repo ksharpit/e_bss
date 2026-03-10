@@ -183,6 +183,14 @@ async function handleTelemetry(pool, deviceId, data) {
   const { voltage, currentDraw, soc, soh, cycleCount, capAvailable, capInitial, podTemp, cellVoltages, ntcTemps, pduTemps } = data;
   const now = new Date();
 
+  // Skip empty/zero readings (BMS not ready, communication gap)
+  // A valid reading must have at least voltage > 0 or soc > 0
+  const hasData = (voltage && voltage > 0) || (soc && soc > 0);
+  if (!hasData) {
+    console.log(`MQTT: skipping empty reading from device ${deviceId} (voltage=${voltage}, soc=${soc})`);
+    return;
+  }
+
   try {
     // Insert telemetry into hypertable
     await pool.query(`
@@ -190,15 +198,16 @@ async function handleTelemetry(pool, deviceId, data) {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
     `, [now, deviceId, batteryId, voltage, currentDraw, soc, soh, cycleCount, capAvailable, capInitial, podTemp, cellVoltages, ntcTemps, pduTemps]);
 
-    // Update battery record with latest values
+    // Update battery record with latest non-zero values only
+    // Use NULLIF to avoid overwriting good values with 0
     if (batteryId) await pool.query(`
         UPDATE batteries SET
-          soc = COALESCE($1, soc),
-          health = COALESCE($2, health),
-          voltage = COALESCE($3, voltage),
+          soc = COALESCE(NULLIF($1, 0), soc),
+          health = COALESCE(NULLIF($2, 0), health),
+          voltage = COALESCE(NULLIF($3, 0), voltage),
           current_draw = COALESCE($4, current_draw),
-          cycle_count = COALESCE($5, cycle_count),
-          temperature = COALESCE($6, temperature),
+          cycle_count = COALESCE(NULLIF($5, 0), cycle_count),
+          temperature = COALESCE(NULLIF($6, 0), temperature),
           last_telemetry = $7
         WHERE id = $8
       `, [soc, soh, voltage, currentDraw, cycleCount, podTemp, now, batteryId]);
