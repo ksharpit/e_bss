@@ -2,18 +2,12 @@
 import mqtt from 'mqtt';
 
 const BROKER_URL = process.env.MQTT_BROKER || 'mqtt://localhost:1883';
+
+// Topics - ESP32 firmware publishes to 'esp32/data'
+// Also support per-device topics for future use
+const TOPIC_ESP32_DATA = 'esp32/data';
 const TOPIC_TELEMETRY = 'electica/battery/+/telemetry';
 const TOPIC_STATUS = 'electica/battery/+/status';
-
-// Scaling factors (update once BMS datasheet is available)
-const SCALE = {
-  soc: 1000,       // raw / 1000 = percentage
-  soh: 1000,       // raw / 1000 = percentage
-  current: 1,      // TBD from datasheet
-  temp: 1000,      // raw / 1000 = degrees C
-  cycle: 1,        // TBD from datasheet
-  cap: 1,          // TBD from datasheet
-};
 
 // Device ID -> battery ID cache (avoid DB lookup on every message)
 const deviceMap = new Map();
@@ -29,9 +23,10 @@ export function initMqtt(pool) {
 
   mqttClient.on('connect', () => {
     console.log(`MQTT connected to ${BROKER_URL}`);
+    mqttClient.subscribe(TOPIC_ESP32_DATA, { qos: 1 });
     mqttClient.subscribe(TOPIC_TELEMETRY, { qos: 1 });
     mqttClient.subscribe(TOPIC_STATUS, { qos: 1 });
-    console.log(`MQTT subscribed to ${TOPIC_TELEMETRY}, ${TOPIC_STATUS}`);
+    console.log(`MQTT subscribed to: ${TOPIC_ESP32_DATA}, ${TOPIC_TELEMETRY}, ${TOPIC_STATUS}`);
 
     // Pre-load device map
     loadDeviceMap(pool);
@@ -39,15 +34,29 @@ export function initMqtt(pool) {
 
   mqttClient.on('message', (topic, message) => {
     try {
-      const parts = topic.split('/');
-      // topic format: electica/battery/{deviceId}/telemetry|status
-      const deviceId = parseInt(parts[2], 10);
-      const type = parts[3];
+      const data = JSON.parse(message.toString());
 
-      if (type === 'telemetry') {
-        handleTelemetry(pool, deviceId, JSON.parse(message.toString()));
-      } else if (type === 'status') {
-        handleStatus(pool, deviceId, message.toString());
+      if (topic === TOPIC_ESP32_DATA) {
+        // ESP32 firmware format: { ts, device_id, telemetry, cells_v, ntc_temp, pdu_temp }
+        const deviceId = String(data.device_id || data.DI || '');
+        if (!deviceId) {
+          console.warn('MQTT: message on esp32/data missing device_id');
+          return;
+        }
+        const normalized = normalizePayload(data);
+        handleTelemetry(pool, deviceId, normalized);
+      } else {
+        // Per-device topic: electica/battery/{deviceId}/telemetry|status
+        const parts = topic.split('/');
+        const deviceId = String(parts[2]);
+        const type = parts[3];
+
+        if (type === 'telemetry') {
+          const normalized = normalizePayload(data);
+          handleTelemetry(pool, deviceId, normalized);
+        } else if (type === 'status') {
+          handleStatus(pool, deviceId, message.toString());
+        }
       }
     } catch (err) {
       console.error('MQTT message error:', err.message);
@@ -63,13 +72,56 @@ export function initMqtt(pool) {
   });
 }
 
+// Normalize payload: handle both ESP32 firmware format and legacy format
+// ESP32 firmware (actual):  { ts, device_id, telemetry: { pack_v, pack_i, soc, soh, cycle, cap_avail, cap_init, pod_temp }, cells_v, ntc_temp, pdu_temp }
+//   - All values are pre-scaled in firmware (SOC=85 means 85%, temps in C, voltage in V)
+// Legacy/test format:       { TS, DI, Telemetry: { Volt, Curr, Soc, Soh, Cycle, Cap_avail, Cap_init, Pod_temp }, cells_v, Ntc_temp, Pdu_temp }
+//   - Some values need /1000 scaling (Soc, Soh, temps)
+function normalizePayload(data) {
+  // Detect format: if 'telemetry' key exists (lowercase) it's ESP32 firmware format
+  const isESP32 = data.telemetry != null;
+
+  if (isESP32) {
+    const t = data.telemetry;
+    return {
+      voltage: t.pack_v ?? null,
+      currentDraw: t.pack_i ?? null,
+      soc: t.soc ?? null,
+      soh: t.soh ?? null,
+      cycleCount: t.cycle ?? null,
+      capAvailable: t.cap_avail ?? null,
+      capInitial: t.cap_init ?? null,
+      podTemp: t.pod_temp ?? null,
+      cellVoltages: data.cells_v || null,
+      ntcTemps: data.ntc_temp || null,
+      pduTemps: data.pdu_temp || null,
+    };
+  }
+
+  // Legacy format (uppercase keys, some values need /1000)
+  const t = data.Telemetry || {};
+  return {
+    voltage: t.Volt ?? null,
+    currentDraw: t.Curr ?? null,
+    soc: t.Soc != null ? t.Soc / 1000 : null,
+    soh: t.Soh != null ? t.Soh / 1000 : null,
+    cycleCount: t.Cycle != null ? Math.round(t.Cycle) : null,
+    capAvailable: t.Cap_avail ?? null,
+    capInitial: t.Cap_init ?? null,
+    podTemp: t.Pod_temp != null ? t.Pod_temp / 1000 : null,
+    cellVoltages: data.cells_v || null,
+    ntcTemps: data.Ntc_temp ? data.Ntc_temp.map(v => v / 1000) : null,
+    pduTemps: data.Pdu_temp ? data.Pdu_temp.map(v => v / 1000) : null,
+  };
+}
+
 // Load device_id -> battery_id mapping from DB
 async function loadDeviceMap(pool) {
   try {
     const { rows } = await pool.query('SELECT id, device_id FROM batteries WHERE device_id IS NOT NULL');
     deviceMap.clear();
     for (const row of rows) {
-      deviceMap.set(row.device_id, row.id);
+      deviceMap.set(String(row.device_id), row.id);
     }
     console.log(`MQTT device map loaded: ${deviceMap.size} batteries`);
   } catch (err) {
@@ -95,8 +147,7 @@ async function autoDiscoverBattery(pool, deviceId, data) {
   }
   const batteryId = `BAT-${String(nextNum).padStart(4, '0')}`;
 
-  // Extract initial capacity from first telemetry if available
-  const capInit = data.Telemetry?.Cap_init ?? null;
+  const capInit = data.capInitial ?? null;
 
   await pool.query(`
     INSERT INTO batteries (id, device_id, status, soc, health, cycle_count, temperature, voltage, cap_initial)
@@ -110,7 +161,7 @@ async function autoDiscoverBattery(pool, deviceId, data) {
   return batteryId;
 }
 
-// Handle incoming telemetry from BMS
+// Handle incoming telemetry (already normalized)
 async function handleTelemetry(pool, deviceId, data) {
   let batteryId = deviceMap.get(deviceId);
 
@@ -123,19 +174,7 @@ async function handleTelemetry(pool, deviceId, data) {
     }
   }
 
-  // Scale raw values
-  const soc = data.Telemetry?.Soc != null ? data.Telemetry.Soc / SCALE.soc : null;
-  const soh = data.Telemetry?.Soh != null ? data.Telemetry.Soh / SCALE.soh : null;
-  const voltage = data.Telemetry?.Volt ?? null;
-  const currentDraw = data.Telemetry?.Curr != null ? data.Telemetry.Curr / SCALE.current : null;
-  const cycleCount = data.Telemetry?.Cycle != null ? Math.round(data.Telemetry.Cycle / SCALE.cycle) : null;
-  const capAvailable = data.Telemetry?.Cap_avail ?? null;
-  const capInitial = data.Telemetry?.Cap_init ?? null;
-  const podTemp = data.Telemetry?.Pod_temp != null ? data.Telemetry.Pod_temp / SCALE.temp : null;
-  const cellVoltages = data.cells_v || null;
-  const ntcTemps = data.Ntc_temp ? data.Ntc_temp.map(t => t / SCALE.temp) : null;
-  const pduTemps = data.Pdu_temp ? data.Pdu_temp.map(t => t / SCALE.temp) : null;
-
+  const { voltage, currentDraw, soc, soh, cycleCount, capAvailable, capInitial, podTemp, cellVoltages, ntcTemps, pduTemps } = data;
   const now = new Date();
 
   try {
@@ -164,13 +203,10 @@ async function handleTelemetry(pool, deviceId, data) {
 
 // Handle battery online/offline status
 async function handleStatus(pool, deviceId, status) {
-  const batteryId = deviceMap.get(deviceId);
+  const batteryId = deviceMap.get(String(deviceId));
   if (!batteryId) return;
 
   console.log(`Battery ${batteryId} (device ${deviceId}): ${status}`);
-
-  // Could auto-set fault status on disconnect, etc.
-  // For now just log it
 }
 
 export { mqttClient };

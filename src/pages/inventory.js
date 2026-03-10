@@ -400,7 +400,7 @@ export async function renderInventory(container) {
         const stName = stationId ? stations.find(s => s.id === stationId)?.name || '' : null;
         const body = {
           id: batId,
-          deviceId: parseInt(deviceId, 10),
+          deviceId,
           stationId: stationId || null,
           stationName: stName,
           status,

@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS stations (
 -- Batteries
 CREATE TABLE IF NOT EXISTS batteries (
     id              TEXT PRIMARY KEY,        -- BAT-0001
-    device_id       INTEGER UNIQUE,          -- BMS DI field (physical hardware ID)
+    device_id       TEXT UNIQUE,             -- BMS device_id field (e.g. "ESP32_BMS_01")
     station_id      TEXT REFERENCES stations(id) ON DELETE SET NULL,
     station_name    TEXT,
     status          TEXT DEFAULT 'stock',    -- stock, available, charging, deployed, fault
@@ -139,7 +139,7 @@ CREATE TABLE IF NOT EXISTS agents (
 -- Raw telemetry from BMS via MQTT
 CREATE TABLE IF NOT EXISTS battery_telemetry (
     time            TIMESTAMPTZ NOT NULL,
-    device_id       INTEGER NOT NULL,        -- BMS DI field
+    device_id       TEXT NOT NULL,           -- BMS device_id field
     battery_id      TEXT,                    -- resolved BAT-xxxx
     voltage         NUMERIC(7,3),            -- pack voltage (V)
     current_draw    NUMERIC(12,3),           -- current (A), negative = charging
