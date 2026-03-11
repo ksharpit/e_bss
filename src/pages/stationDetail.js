@@ -252,7 +252,7 @@ export async function renderStationDetail(container, stationId) {
             <span style="background:rgba(212,101,74,0.10);padding:6px;border-radius:var(--radius-md);color:#D4654A;display:flex">${icon('location_on', '20px')}</span>
             Station Location
           </h3>
-          <span style="font-size:var(--font-xs);font-weight:600;color:#6f6f6f">${station.lat.toFixed(4)}°N, ${station.lng.toFixed(4)}°E</span>
+          <span style="font-size:var(--font-xs);font-weight:600;color:#6f6f6f">${station.lat != null ? Number(station.lat).toFixed(4) : '0.0000'}°N, ${station.lng != null ? Number(station.lng).toFixed(4) : '0.0000'}°E</span>
         </div>
         <div id="sd-map-${station.id}" style="flex:1;min-height:240px;z-index:1"></div>
         <div style="padding:12px 1.5rem;background:#faf9f7;border-top:1px solid #f0efec;display:flex;align-items:center;gap:8px">
@@ -374,7 +374,9 @@ export async function renderStationDetail(container, stationId) {
 
 
   // ── Leaflet OpenStreetMap ──
-  initStationMap(`sd-map-${station.id}`, station.lat, station.lng, station.name, station.location);
+  if (station.lat != null && station.lng != null) {
+    initStationMap(`sd-map-${station.id}`, Number(station.lat), Number(station.lng), station.name, station.location);
+  }
 }
 
 function stationKpiCard(iconName, label, value, trend, trendType) {
