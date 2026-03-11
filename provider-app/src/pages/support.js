@@ -24,7 +24,7 @@ const QUERY_CATS = {
 const STATUS_BADGE = {
   open:     '<span class="badge badge-amber"><span class="material-symbols-outlined">schedule</span> Open</span>',
   resolved: '<span class="badge badge-green"><span class="material-symbols-outlined">check_circle</span> Resolved</span>',
-  closed:   '<span class="badge badge-green"><span class="material-symbols-outlined">verified</span> Closed</span>',
+  closed:   '<span class="badge badge-red"><span class="material-symbols-outlined">cancel</span> Rejected</span>',
 };
 const BATT_STATUS_LABEL = {
   deployed:  { icon: 'person',                bg: 'rgba(99,102,241,0.08)',   color: '#6366f1', label: 'Deployed' },

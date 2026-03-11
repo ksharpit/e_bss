@@ -32,7 +32,7 @@ function statusBadge(status) {
   const map = {
     open:     { bg: '#fef3c7', color: '#d97706', icon: 'schedule',     label: 'Open' },
     resolved: { bg: '#dcfce7', color: '#16a34a', icon: 'check_circle', label: 'Resolved' },
-    closed:   { bg: '#e0e7ff', color: '#4f46e5', icon: 'verified',     label: 'Closed' },
+    closed:   { bg: '#fef2f2', color: '#dc2626', icon: 'cancel',       label: 'Rejected' },
   };
   const s = map[status] || map.open;
   return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${s.bg};color:${s.color}">
@@ -567,14 +567,24 @@ function showTicketDetailModal(container, ticket, userMap, agentMap) {
             </button>
           ` : ''}
           ${canApproveFault ? `
-            <button id="td-approve-fault" style="width:100%;margin-top:10px;padding:10px;border:1px solid #fecaca;border-radius:10px;background:#fef2f2;color:#dc2626;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
-              <span class="material-symbols-outlined" style="font-size:16px">battery_alert</span> Approve - Mark Battery as Faulty
-            </button>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button id="td-approve-fault" style="flex:1;padding:10px;border:1px solid #fecaca;border-radius:10px;background:#fef2f2;color:#dc2626;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+                <span class="material-symbols-outlined" style="font-size:16px">check_circle</span> Approve Fault
+              </button>
+              <button id="td-reject-fault" style="flex:1;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;color:#64748b;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+                <span class="material-symbols-outlined" style="font-size:16px">close</span> Reject Claim
+              </button>
+            </div>
           ` : ''}
           ${canApproveRepair ? `
-            <button id="td-approve-repair" style="width:100%;margin-top:10px;padding:10px;border:1px solid #bbf7d0;border-radius:10px;background:#f0fdf4;color:#16a34a;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
-              <span class="material-symbols-outlined" style="font-size:16px">build</span> Approve Repair - Reassign Battery
-            </button>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button id="td-approve-repair" style="flex:1;padding:10px;border:1px solid #bbf7d0;border-radius:10px;background:#f0fdf4;color:#16a34a;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+                <span class="material-symbols-outlined" style="font-size:16px">build</span> Approve Repair
+              </button>
+              <button id="td-reject-repair" style="flex:1;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;color:#64748b;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+                <span class="material-symbols-outlined" style="font-size:16px">close</span> Reject Claim
+              </button>
+            </div>
           ` : ''}
         </div>
       `}
@@ -746,6 +756,62 @@ function showTicketDetailModal(container, ticket, userMap, agentMap) {
         confirmBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">check_circle</span> Confirm Repair Approval';
       }
     });
+  });
+
+  // Reject fault report
+  document.getElementById('td-reject-fault')?.addEventListener('click', async () => {
+    const btn = document.getElementById('td-reject-fault');
+    const reason = document.getElementById('td-reply-text')?.value?.trim();
+    if (!reason) { showToast('Add a reply explaining the rejection', 'warning'); document.getElementById('td-reply-text')?.focus(); return; }
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;animation:spin 1s linear infinite">progress_activity</span> Rejecting...';
+    try {
+      const rejectReply = { from: 'admin', name: 'Admin', role: 'admin', text: reason, timestamp: new Date().toISOString() };
+      await apiFetch(`/tickets/${ticket.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'closed',
+          replies: [...replies, rejectReply],
+          resolvedAt: new Date().toISOString(),
+        }),
+      });
+      overlay.remove();
+      showToast('Fault claim rejected for ' + ticket.batteryId, 'success');
+      renderSupport(container);
+    } catch {
+      showToast('Failed to reject', 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">close</span> Reject Claim';
+    }
+  });
+
+  // Reject repair request
+  document.getElementById('td-reject-repair')?.addEventListener('click', async () => {
+    const btn = document.getElementById('td-reject-repair');
+    const reason = document.getElementById('td-reply-text')?.value?.trim();
+    if (!reason) { showToast('Add a reply explaining the rejection', 'warning'); document.getElementById('td-reply-text')?.focus(); return; }
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;animation:spin 1s linear infinite">progress_activity</span> Rejecting...';
+    try {
+      const rejectReply = { from: 'admin', name: 'Admin', role: 'admin', text: reason, timestamp: new Date().toISOString() };
+      await apiFetch(`/tickets/${ticket.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'closed',
+          replies: [...replies, rejectReply],
+          resolvedAt: new Date().toISOString(),
+        }),
+      });
+      overlay.remove();
+      showToast('Repair claim rejected for ' + ticket.batteryId, 'success');
+      renderSupport(container);
+    } catch {
+      showToast('Failed to reject', 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">close</span> Reject Claim';
+    }
   });
 }
 
