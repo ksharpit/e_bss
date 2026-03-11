@@ -109,11 +109,16 @@ function normalizePayload(data) {
   // Auto-detect: if value > 100, it needs scaling. If <= 100, it's already in the right range.
   const t = data.Telemetry || {};
 
-  // Voltage: raw values like 4798 need /100, pre-scaled values like 48.66 don't
-  // Max pack voltage for 16-cell is ~67V, so anything > 100 is raw
-  const voltage = t.Volt != null ? (t.Volt > 100 ? t.Volt / 100 : t.Volt) : null;
-  // Current: raw values like 256 need /100, pre-scaled values like 2.56 don't
-  const currentDraw = t.Curr != null ? (t.Curr > 100 ? t.Curr / 100 : t.Curr) : null;
+  // Voltage: max pack voltage for 16-cell is ~67V
+  // Raw values: 44040 -> /1000 = 44.04V, 4798 -> /100 = 47.98V, pre-scaled: 48.66 -> 48.66V
+  const voltage = t.Volt != null
+    ? (t.Volt > 10000 ? t.Volt / 1000 : t.Volt > 100 ? t.Volt / 100 : t.Volt)
+    : null;
+  // Current: max realistic current is ~50A
+  // Raw values: 256 -> /100 = 2.56A, pre-scaled: 2.56 -> 2.56A
+  const currentDraw = t.Curr != null
+    ? (t.Curr > 10000 ? t.Curr / 1000 : t.Curr > 100 ? t.Curr / 100 : t.Curr)
+    : null;
   // SOC: raw values like 6818 need /100, pre-scaled values like 100 don't
   const soc = t.Soc != null ? (t.Soc > 100 ? t.Soc / 100 : t.Soc) : null;
   // SOH: raw values like 25600 need /1000, pre-scaled values like 100 don't
@@ -135,8 +140,9 @@ function normalizePayload(data) {
     soc,
     soh,
     cycleCount: t.Cycle != null ? Math.round(t.Cycle) : null,
-    capAvailable: t.Cap_avail ?? null,
-    capInitial: t.Cap_init ?? null,
+    // Capacity: realistic range is 0-100 Ah. Raw values like 1280 need /100
+    capAvailable: t.Cap_avail != null ? (t.Cap_avail > 200 ? t.Cap_avail / 100 : t.Cap_avail) : null,
+    capInitial: t.Cap_init != null ? (t.Cap_init > 200 ? t.Cap_init / 100 : t.Cap_init) : null,
     podTemp,
     cellVoltages: data.cells_v || null,
     ntcTemps,
