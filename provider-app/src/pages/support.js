@@ -41,7 +41,7 @@ function fmtTime(iso) {
     d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 }
 
-export async function renderSupport(container, agent) {
+export async function renderSupport(container, agent, initialTab = 'customer') {
   container.innerHTML = `<div class="loading">Loading support data...</div>`;
 
   let myUsers = [], allUsers = [], tickets = [], batteries = [];
@@ -62,16 +62,32 @@ export async function renderSupport(container, agent) {
   const customerTickets = tickets.filter(t =>
     myUserIds.has(t.userId) && !PROVIDER_TYPES.has(t.type) && t.type !== 'admin_query'
   );
-  // My tickets: raised by this provider to admin
+  // My tickets: provider-type tickets (own + unassigned)
   const myTickets = tickets.filter(t =>
-    PROVIDER_TYPES.has(t.type) && t.agentId === agent.id
+    PROVIDER_TYPES.has(t.type) && (!t.agentId || t.agentId === agent.id)
   );
   // Admin queries: sent by admin to this agent
   const adminQueries = tickets.filter(t =>
     t.type === 'admin_query' && t.targetAgentId === agent.id
   );
+  const sortByTime = (a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
+  customerTickets.sort(sortByTime);
+  myTickets.sort(sortByTime);
+  adminQueries.sort(sortByTime);
   const allMyTickets = [...customerTickets, ...myTickets, ...adminQueries];
-  allMyTickets.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+  allMyTickets.sort(sortByTime);
+
+  // DEBUG: find tickets not matching any tab filter
+  const matchedIds = new Set(allMyTickets.map(t => t.id));
+  const orphaned = tickets.filter(t => !matchedIds.has(t.id));
+  if (orphaned.length > 0) {
+    console.warn('[Support] Orphaned tickets (not in any tab):', orphaned.map(t =>
+      ({ id: t.id, type: t.type, agentId: t.agentId, userId: t.userId, status: t.status })
+    ));
+    console.warn('[Support] Current agent.id:', agent.id);
+  }
+  console.log('[Support] Total fetched:', tickets.length, '| Matched:', allMyTickets.length,
+    '| Customer:', customerTickets.length, '| Mine:', myTickets.length, '| Admin:', adminQueries.length);
 
   const openCustomerCount = customerTickets.filter(t => t.status === 'open').length;
   const openMyCount = myTickets.filter(t => t.status === 'open').length;
@@ -133,29 +149,28 @@ export async function renderSupport(container, agent) {
         </div>
       </div>
       <div class="prov-filter-bar" id="ticket-filter-bar">
-        <button class="prov-filter-tab active" data-filter="customer">
+        <button class="prov-filter-tab${initialTab === 'customer' ? ' active' : ''}" data-filter="customer">
           Customers
           ${openCustomerCount > 0 ? `<span class="prov-filter-badge open">${openCustomerCount}</span>` : `<span class="prov-filter-badge">${customerTickets.length}</span>`}
         </button>
-        <button class="prov-filter-tab" data-filter="mine">
+        <button class="prov-filter-tab${initialTab === 'mine' ? ' active' : ''}" data-filter="mine">
           My Tickets
           ${openMyCount > 0 ? `<span class="prov-filter-badge open">${openMyCount}</span>` : `<span class="prov-filter-badge">${myTickets.length}</span>`}
         </button>
-        <button class="prov-filter-tab" data-filter="admin">
+        <button class="prov-filter-tab${initialTab === 'admin' ? ' active' : ''}" data-filter="admin">
           Admin
           ${openAdminCount > 0 ? `<span class="prov-filter-badge open">${openAdminCount}</span>` : `<span class="prov-filter-badge">${adminQueries.length}</span>`}
         </button>
       </div>
       <div id="tickets-list">
-        ${customerTickets.length === 0
-          ? `<div class="support-empty">
-              <span class="material-symbols-outlined">inbox</span>
-              <p>No customer tickets yet</p>
-            </div>`
-          : customerTickets.slice(0, 10).map(t => ticketItem(t, userMap, agent)).join('')}
-        ${customerTickets.length > 10 ? `<div style="text-align:center;padding:10px 0 4px">
-          <span style="font-size:var(--font-xs);color:var(--text-soft);font-weight:600">${customerTickets.length - 10} more</span>
-        </div>` : ''}
+        ${(() => {
+          const items = initialTab === 'admin' ? adminQueries : initialTab === 'mine' ? myTickets : customerTickets;
+          const emptyMsg = initialTab === 'admin' ? 'No admin queries' : initialTab === 'mine' ? 'No tickets raised yet' : 'No customer tickets yet';
+          return items.length === 0
+            ? `<div class="support-empty"><span class="material-symbols-outlined">inbox</span><p>${emptyMsg}</p></div>`
+            : items.slice(0, 10).map(t => ticketItem(t, userMap, agent)).join('')
+              + (items.length > 10 ? `<div style="text-align:center;padding:10px 0 4px"><span style="font-size:var(--font-xs);color:var(--text-soft);font-weight:600">${items.length - 10} more</span></div>` : '');
+        })()}
       </div>
     </div>
 
@@ -310,7 +325,7 @@ export async function renderSupport(container, agent) {
   wireTicketTaps();
 
   // ── Filter tabs for tickets ──
-  let ticketFilter = 'customer';
+  let ticketFilter = initialTab;
   container.querySelectorAll('.prov-filter-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       ticketFilter = tab.dataset.filter;
@@ -422,7 +437,7 @@ export async function renderSupport(container, agent) {
     faultSubmitBtn.style.opacity = '0.5';
     faultSubmitBtn.innerHTML = '<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Submitting...';
     try {
-      await apiFetch('/tickets', {
+      const res = await apiFetch('/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -436,8 +451,9 @@ export async function renderSupport(container, agent) {
           timestamp: new Date().toISOString(),
         }),
       });
+      if (!res.ok) throw new Error('Server error');
       showToast('Fault report submitted - admin will review', 'success');
-      renderSupport(container, agent);
+      renderSupport(container, agent, 'mine');
     } catch {
       showToast('Failed to submit report', 'error');
       faultSubmitBtn.disabled = false;
@@ -604,7 +620,7 @@ function showTicketSheet(container, agent) {
     btn.disabled = true;
     btn.innerHTML = '<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Submitting...';
     try {
-      await apiFetch('/tickets', {
+      const res = await apiFetch('/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -617,9 +633,10 @@ function showTicketSheet(container, agent) {
           timestamp: new Date().toISOString(),
         }),
       });
+      if (!res.ok) throw new Error('Server error');
       sheet.remove();
       showToast('Ticket submitted to admin', 'success');
-      renderSupport(container, agent);
+      renderSupport(container, agent, 'mine');
     } catch {
       showToast('Failed to submit ticket', 'error');
       btn.disabled = false;
@@ -686,7 +703,7 @@ function showRepairSheet(container, agent, bat) {
     btn.disabled = true;
     btn.innerHTML = '<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Submitting...';
     try {
-      await apiFetch('/tickets', {
+      const res = await apiFetch('/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -699,9 +716,10 @@ function showRepairSheet(container, agent, bat) {
           timestamp: new Date().toISOString(),
         }),
       });
+      if (!res.ok) throw new Error('Server error');
       sheet.remove();
       showToast('Repair request submitted - admin will review', 'success');
-      renderSupport(container, agent);
+      renderSupport(container, agent, 'mine');
     } catch {
       showToast('Failed to submit request', 'error');
       btn.disabled = false;
@@ -847,7 +865,9 @@ function showReplySheet(container, agent, ticket, userMap) {
       });
       sheet.remove();
       showToast('Reply sent', 'success');
-      renderSupport(container, agent);
+      const replyTab = ticket.type === 'admin_query' ? 'admin'
+        : ['provider_ticket','fault_report','repair_request'].includes(ticket.type) ? 'mine' : 'customer';
+      renderSupport(container, agent, replyTab);
     } catch {
       showToast('Failed to send reply', 'error');
       btn.disabled = false;
@@ -868,7 +888,7 @@ function showReplySheet(container, agent, ticket, userMap) {
       });
       sheet.remove();
       showToast('Ticket resolved', 'success');
-      renderSupport(container, agent);
+      renderSupport(container, agent, 'mine');
     } catch {
       showToast('Failed to resolve', 'error');
       btn.disabled = false;
