@@ -348,7 +348,10 @@ app.post('/:collection', authMiddleware, async (req, res) => {
     }
 
     const cols = Object.keys(snakeBody);
-    const vals = Object.values(snakeBody);
+    // Stringify arrays/objects for JSONB columns (pg doesn't auto-convert)
+    const vals = Object.values(snakeBody).map(v =>
+      (Array.isArray(v) || (v && typeof v === 'object' && !(v instanceof Date))) ? JSON.stringify(v) : v
+    );
     const placeholders = vals.map((_, i) => `$${i + 1}`);
 
     await pool.query(
@@ -373,7 +376,10 @@ app.patch('/:collection/:id', authMiddleware, async (req, res) => {
   try {
     const snakeBody = bodyToSnake(req.body);
     const cols = Object.keys(snakeBody);
-    const vals = Object.values(snakeBody);
+    // Stringify arrays/objects for JSONB columns (pg doesn't auto-convert)
+    const vals = Object.values(snakeBody).map(v =>
+      (Array.isArray(v) || (v && typeof v === 'object' && !(v instanceof Date))) ? JSON.stringify(v) : v
+    );
 
     if (cols.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
@@ -409,7 +415,10 @@ app.put('/:collection/:id', authMiddleware, async (req, res) => {
     const snakeBody = bodyToSnake(req.body);
     snakeBody.id = id;
     const cols = Object.keys(snakeBody);
-    const vals = Object.values(snakeBody);
+    // Stringify arrays/objects for JSONB columns (pg doesn't auto-convert)
+    const vals = Object.values(snakeBody).map(v =>
+      (Array.isArray(v) || (v && typeof v === 'object' && !(v instanceof Date))) ? JSON.stringify(v) : v
+    );
     const placeholders = vals.map((_, i) => `$${i + 1}`);
 
     // Upsert
