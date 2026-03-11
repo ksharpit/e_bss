@@ -42,7 +42,7 @@ export async function renderHistory(container, userId) {
 
   const swapOnly   = swaps.filter(s => s.type !== 'allocation');
   const swapCount  = swapOnly.length;
-  const totalSpent = swapOnly.reduce((s, x) => s + (x.amount || 0), 0);
+  const totalSpent = swapOnly.reduce((s, x) => s + (Number(x.amount) || 0), 0);
   const avgCost    = swapCount ? Math.round(totalSpent / swapCount) : 0;
 
   // Group by month
@@ -136,7 +136,7 @@ function swapCard(s) {
         <div style="font-size:var(--font-xs);color:var(--text-soft);font-weight:500;margin-top:1px">${relativeDay(s.timestamp)} · ${fmtTime(s.timestamp)}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:var(--font-md);font-weight:900;color:var(--gold);letter-spacing:-0.03em">₹${s.amount}</div>
+        <div style="font-size:var(--font-md);font-weight:900;color:var(--gold);letter-spacing:-0.03em">₹${Number(s.amount) || 0}</div>
       </div>
     </div>
 

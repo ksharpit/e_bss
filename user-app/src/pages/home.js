@@ -132,7 +132,7 @@ export async function renderHome(container, userId, setTab) {
           <span class="material-symbols-outlined" style="color:var(--gold)">currency_rupee</span>
         </div>
         <div>
-          <div class="quick-stat-val">₹${(user.totalSpent ?? 0).toLocaleString('en-IN')}</div>
+          <div class="quick-stat-val">₹${(Number(user.totalSpent) || 0).toLocaleString('en-IN')}</div>
           <div class="quick-stat-lbl">Total Spent</div>
         </div>
       </div>
@@ -249,7 +249,7 @@ export async function renderHome(container, userId, setTab) {
             <div class="history-item-date">${fmtDateTime(s.timestamp)}</div>
           </div>
           <div>
-            <div class="history-amount">₹${s.amount}</div>
+            <div class="history-amount">₹${Number(s.amount) || 0}</div>
             <div class="history-amount-sub">Completed</div>
           </div>
         </div>`).join('')}
