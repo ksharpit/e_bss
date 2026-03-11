@@ -87,9 +87,9 @@ export async function renderDashboard(container) {
   // Compute derived values from real station data
   const totalStations = stations.length;
   const onlineCount   = stations.filter(s => s.status === 'online').length;
-  const totalPods     = stations.reduce((a, s) => a + (s.pods || 0), 0);
+  const totalPods     = stations.reduce((a, s) => a + (Number(s.pods) || 0), 0);
   const avgUptime     = totalStations > 0
-    ? +(stations.reduce((a, s) => a + (s.uptime || 0), 0) / totalStations).toFixed(1)
+    ? +(stations.reduce((a, s) => a + (Number(s.uptime) || 0), 0) / totalStations).toFixed(1)
     : 0;
 
   // Swaps today/yesterday from real swap records

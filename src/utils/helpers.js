@@ -22,14 +22,14 @@ export function curSymbol() {
 /** Format amount with conversion and locale (e.g. ₹3,250 or $39) */
 export function fmtCur(amount) {
   const { symbol, rate } = getCurrency();
-  const v = Math.round(amount * rate);
+  const v = Math.round((Number(amount) || 0) * rate);
   return symbol + v.toLocaleString('en-IN');
 }
 
 /** Format large amounts abbreviated (e.g. ₹45.3K, $1.2M) */
 export function formatRevM(n) {
   const { symbol, rate } = getCurrency();
-  const v = Math.round(n * rate);
+  const v = Math.round((Number(n) || 0) * rate);
   if (v >= 1_000_000) return symbol + (v / 1_000_000).toFixed(2) + 'M';
   if (v >= 1_000) return symbol + (v / 1_000).toFixed(1) + 'K';
   return symbol + v;

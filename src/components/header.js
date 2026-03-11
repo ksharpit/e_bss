@@ -72,9 +72,9 @@ export function renderHeader() {
           st._revToday = st._swapsToday * 65;
         });
 
-        const totalSwapRev = swaps.reduce((s, sw) => s + (sw.amount || 0), 0);
+        const totalSwapRev = swaps.reduce((s, sw) => s + (Number(sw.amount) || 0), 0);
         const deposits = transactions.filter(t => t.type === 'security_deposit' && t.status === 'completed');
-        const totalDepRev = deposits.reduce((s, t) => s + (t.amount || 0), 0);
+        const totalDepRev = deposits.reduce((s, t) => s + (Number(t.amount) || 0), 0);
 
         const sections = [
           // 1. Summary / Insights

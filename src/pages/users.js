@@ -78,7 +78,7 @@ export async function renderUsers(container) {
     users = mockUsers;
   }
 
-  const totalSpent  = users.reduce((s, u) => s + u.totalSpent, 0);
+  const totalSpent  = users.reduce((s, u) => s + (Number(u.totalSpent) || 0), 0);
   const verifiedCnt = users.filter(u => u.kycStatus === 'verified').length;
   const pendingCnt  = users.filter(u => u.kycStatus === 'pending').length;
   const rejectedCnt = users.filter(u => u.kycStatus === 'rejected').length;
