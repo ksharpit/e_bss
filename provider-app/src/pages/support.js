@@ -151,15 +151,15 @@ export async function renderSupport(container, agent, initialTab = 'customer') {
       <div class="prov-filter-bar" id="ticket-filter-bar">
         <button class="prov-filter-tab${initialTab === 'customer' ? ' active' : ''}" data-filter="customer">
           Customers
-          <span class="prov-filter-badge${openCustomerCount > 0 ? ' open' : ''}">${customerTickets.length}</span>
+          <span class="prov-filter-badge${openCustomerCount > 0 ? ' open' : ''}">${openCustomerCount}</span>
         </button>
         <button class="prov-filter-tab${initialTab === 'mine' ? ' active' : ''}" data-filter="mine">
           My Tickets
-          <span class="prov-filter-badge${openMyCount > 0 ? ' open' : ''}">${myTickets.length}</span>
+          <span class="prov-filter-badge${openMyCount > 0 ? ' open' : ''}">${openMyCount}</span>
         </button>
         <button class="prov-filter-tab${initialTab === 'admin' ? ' active' : ''}" data-filter="admin">
           Admin
-          <span class="prov-filter-badge${openAdminCount > 0 ? ' open' : ''}">${adminQueries.length}</span>
+          <span class="prov-filter-badge${openAdminCount > 0 ? ' open' : ''}">${openAdminCount}</span>
         </button>
       </div>
       <div id="tickets-list">
