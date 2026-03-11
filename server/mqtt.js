@@ -109,6 +109,11 @@ function normalizePayload(data) {
   // Auto-detect: if value > 100, it needs scaling. If <= 100, it's already in the right range.
   const t = data.Telemetry || {};
 
+  // Voltage: raw values like 4798 need /100, pre-scaled values like 48.66 don't
+  // Max pack voltage for 16-cell is ~67V, so anything > 100 is raw
+  const voltage = t.Volt != null ? (t.Volt > 100 ? t.Volt / 100 : t.Volt) : null;
+  // Current: raw values like 256 need /100, pre-scaled values like 2.56 don't
+  const currentDraw = t.Curr != null ? (t.Curr > 100 ? t.Curr / 100 : t.Curr) : null;
   // SOC: raw values like 6818 need /100, pre-scaled values like 100 don't
   const soc = t.Soc != null ? (t.Soc > 100 ? t.Soc / 100 : t.Soc) : null;
   // SOH: raw values like 25600 need /1000, pre-scaled values like 100 don't
@@ -125,8 +130,8 @@ function normalizePayload(data) {
     : null;
 
   return {
-    voltage: t.Volt ?? null,
-    currentDraw: t.Curr ?? null,
+    voltage,
+    currentDraw,
     soc,
     soh,
     cycleCount: t.Cycle != null ? Math.round(t.Cycle) : null,
