@@ -104,20 +104,38 @@ function normalizePayload(data) {
     };
   }
 
-  // Legacy format (uppercase keys, some values need /1000)
+  // Legacy format (uppercase keys)
+  // Some devices send raw values needing scaling (SOC=6818 -> 68.18%), others send pre-scaled (SOC=100 -> 100%)
+  // Auto-detect: if value > 100, it needs scaling. If <= 100, it's already in the right range.
   const t = data.Telemetry || {};
+
+  // SOC: raw values like 6818 need /100, pre-scaled values like 100 don't
+  const soc = t.Soc != null ? (t.Soc > 100 ? t.Soc / 100 : t.Soc) : null;
+  // SOH: raw values like 25600 need /1000, pre-scaled values like 100 don't
+  const soh = t.Soh != null ? (t.Soh > 100 ? t.Soh / 1000 : t.Soh) : null;
+  // Pod_temp: raw values like 8448 need /1000, pre-scaled values like 34 don't
+  const podTemp = t.Pod_temp != null ? (t.Pod_temp > 200 ? t.Pod_temp / 1000 : t.Pod_temp) : null;
+  // Pdu_temp: raw values like [438,438] need /1000, pre-scaled like [35,35] don't
+  const pduTemps = data.Pdu_temp
+    ? data.Pdu_temp.map(v => v > 200 ? v / 1000 : v)
+    : null;
+  // Ntc_temp: same logic
+  const ntcTemps = data.Ntc_temp
+    ? data.Ntc_temp.map(v => v > 200 ? v / 1000 : v)
+    : null;
+
   return {
     voltage: t.Volt ?? null,
     currentDraw: t.Curr ?? null,
-    soc: t.Soc != null ? t.Soc / 100 : null,
-    soh: t.Soh != null ? t.Soh / 1000 : null,
+    soc,
+    soh,
     cycleCount: t.Cycle != null ? Math.round(t.Cycle) : null,
     capAvailable: t.Cap_avail ?? null,
     capInitial: t.Cap_init ?? null,
-    podTemp: t.Pod_temp != null ? t.Pod_temp / 1000 : null,
+    podTemp,
     cellVoltages: data.cells_v || null,
-    ntcTemps: data.Ntc_temp ? data.Ntc_temp.map(v => v / 1000) : null,
-    pduTemps: data.Pdu_temp ? data.Pdu_temp.map(v => v / 1000) : null,
+    ntcTemps,
+    pduTemps,
   };
 }
 

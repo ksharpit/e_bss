@@ -46,6 +46,7 @@ const COL_MAP = {
   // tickets
   agentId: 'agent_id',
   targetAgentId: 'target_agent_id',
+  batteryStatus: 'battery_status',
   respondedBy: 'responded_by',
   respondedAt: 'responded_at',
   resolvedAt: 'resolved_at',

@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     agent_id        TEXT,
     target_agent_id TEXT,
     battery_id      TEXT,
+    battery_status  TEXT,
     station_id      TEXT,
     subject         TEXT,
     category        TEXT,
