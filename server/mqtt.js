@@ -218,17 +218,23 @@ async function handleTelemetry(pool, deviceId, data) {
 
     // Update battery record with latest non-zero values only
     // Use NULLIF to avoid overwriting good values with 0
-    if (batteryId) await pool.query(`
-        UPDATE batteries SET
-          soc = COALESCE(NULLIF($1, 0), soc),
-          health = COALESCE(NULLIF($2, 0), health),
-          voltage = COALESCE(NULLIF($3, 0), voltage),
-          current_draw = COALESCE($4, current_draw),
-          cycle_count = COALESCE(NULLIF($5, 0), cycle_count),
-          temperature = COALESCE(NULLIF($6, 0), temperature),
-          last_telemetry = $7
-        WHERE id = $8
-      `, [soc, soh, voltage, currentDraw, cycleCount, podTemp, now, batteryId]);
+    if (batteryId) {
+      try {
+        await pool.query(`
+          UPDATE batteries SET
+            soc = COALESCE(NULLIF($1::numeric, 0), soc),
+            health = COALESCE(NULLIF($2::numeric, 0), health),
+            voltage = COALESCE(NULLIF($3::numeric, 0), voltage),
+            current_draw = COALESCE($4, current_draw),
+            cycle_count = COALESCE(NULLIF($5::integer, 0), cycle_count),
+            temperature = COALESCE(NULLIF($6::numeric, 0), temperature),
+            last_telemetry = $7
+          WHERE id = $8
+        `, [soc, soh, voltage, currentDraw, cycleCount, podTemp, now, batteryId]);
+      } catch (updateErr) {
+        console.error(`Battery update error (${batteryId}):`, updateErr.message);
+      }
+    }
 
     // Send ACK back to ESP32 so it knows data was received
     if (mqttClient && mqttClient.connected) {
