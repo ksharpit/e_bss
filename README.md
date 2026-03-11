@@ -17,7 +17,8 @@ The central operations hub where everything comes together. 12+ fully interactiv
 
 **Highlights:**
 - Real-time station map with Leaflet.js markers (color-coded by status)
-- Live battery telemetry from ESP32 BMS via MQTT (voltage, current, SOC, SOH, cell voltages, temperatures)
+- Live battery telemetry from ESP32 BMS via MQTT (voltage, current, SOC, SOH, cell voltages, NTC/PDU temperatures)
+- Battery temperature card shows average of NTC1-4 sensors, updates live
 - Revenue analytics with Chart.js - bar charts, concentric doughnut charts, swap frequency heatmaps
 - Interactive "New Station" modal with state/city cascading dropdowns, click-to-place map pins, and Nominatim reverse geocoding
 - Full CRUD operations for stations, batteries, and users from the Settings page
@@ -178,28 +179,53 @@ ESP32 WiFi modules in swap station pods read BMS (Lithion) data when a battery i
 }
 ```
 
-**Legacy MQTT team payload format (uppercase, needs scaling):**
+**Legacy MQTT team payload format (uppercase, variable scaling):**
+
+Different BMS devices send values at different scales. The server auto-detects which scaling to apply.
+
+Example 1 - raw values (device 2):
 ```json
 {
-  "TS": 130,
-  "DI": 2,
+  "TS": 130, "DI": 2,
   "Telemetry": {
-    "Volt": 48.73,
-    "Curr": 2.56,
-    "Soc": 6818,
-    "Soh": 25600,
-    "Cycle": 0,
-    "Cap_avail": 15,
-    "Cap_init": 0,
-    "Pod_temp": 8448
+    "Volt": 4798, "Curr": 256, "Soc": 6818, "Soh": 25600,
+    "Cycle": 0, "Cap_avail": 15, "Cap_init": 0, "Pod_temp": 8448
   },
   "cells_v": [3.012, 3.051, ...],
-  "Ntc_temp": [0, 0, 0, 0, 0, 0],
+  "Ntc_temp": [30000, 31000, 32000, 33000, 0, 0],
   "Pdu_temp": [438, 438, 438, 438]
 }
 ```
 
-**Scaling factors (legacy format):** SOC /100, SOH /1000, Pod_temp /1000, Pdu_temp /1000, Ntc_temp /1000. ESP32 firmware format values are pre-scaled - no division needed.
+Example 2 - mixed scaling (device 3):
+```json
+{
+  "TS": 185, "DI": 3,
+  "Telemetry": {
+    "Volt": 44040, "Curr": 0, "Soc": 100, "Soh": 100,
+    "Cycle": 0, "Cap_avail": 22, "Cap_init": 1280, "Pod_temp": 34
+  },
+  "cells_v": [0, 0, 3.59, 4.07, 4.064, ...],
+  "Ntc_temp": [32.2, 32.1, 32.3, 32.3],
+  "Pdu_temp": [34.2, 32.3, 32.8, 0]
+}
+```
+
+**Auto-detect scaling (3-tier system):**
+
+The MQTT team uses multiple BMS firmware versions across devices, each with different scaling. The server auto-detects based on value ranges:
+
+| Field | > 10000 | > 100 (or > 200) | <= 100 (or <= 200) |
+|-------|---------|-------------------|---------------------|
+| Voltage | /1000 (44040 -> 44.04V) | /100 (4798 -> 47.98V) | pass through (48.66V) |
+| Current | /1000 | /100 (256 -> 2.56A) | pass through (2.56A) |
+| SOC | - | /100 (6818 -> 68.18%) | pass through (100%) |
+| SOH | - | /1000 (25600 -> 25.6%) | pass through (100%) |
+| Pod_temp | - | /1000 if > 200 (8448 -> 8.4C) | pass through (34C) |
+| NTC/PDU temps | - | /1000 if > 200 (438 -> 0.438C) | pass through (32.8C) |
+| Capacity | - | /100 if > 200 (1280 -> 12.8 Ah) | pass through (22 Ah) |
+
+ESP32 firmware format (lowercase keys) values are always pre-scaled - no division needed.
 
 **Zero-value protection:** BMS sometimes sends all-zero readings during initialization or communication gaps. Three layers of protection:
 1. Server drops zero readings before DB insert
@@ -454,9 +480,12 @@ Check `deploy/` folder for the full nginx config, PM2 ecosystem file, and initia
 - The charging simulator running in the background and auto-updating battery status was a neat touch that made the demo feel alive
 - Migrating from json-server to PostgreSQL + Express taught me about proper database schema design, column mapping (camelCase/snake_case), and JWT authentication
 - Integrating real ESP32 hardware via MQTT was a major step - handling two different payload formats (ESP32 firmware vs MQTT team), normalizing data, and dealing with zero-value BMS readings during communication gaps
+- The biggest MQTT challenge was that different BMS devices from the same team send values at completely different scales (one sends Volt:4798 meaning /100, another sends Volt:44040 meaning /1000, and a third sends Volt:48.66 pre-scaled). Building a 3-tier auto-detection system that handles all variants without config was a satisfying problem to solve
 - TimescaleDB hypertables with auto-compression and retention policies showed me how time-series databases differ from regular relational storage
 - Building the battery auto-discovery flow (unknown device IDs automatically create battery records) made the hardware onboarding seamless
 - The three-layer zero-value protection (server drop, SQL NULLIF, frontend guard) was born from debugging real BMS hardware quirks
+- PostgreSQL JSONB columns for ticket replies required explicit JSON.stringify() before passing to the pg driver - JS arrays don't auto-serialize to JSONB, they get misinterpreted as PostgreSQL arrays
+- Building the fault/repair approval workflow taught me about multi-party ticket systems where the originator (provider) cannot resolve their own request - only admin can approve, but both sides need to chat throughout the process
 
 ---
 
