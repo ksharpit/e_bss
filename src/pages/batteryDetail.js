@@ -82,7 +82,7 @@ export async function renderBatteryDetail(container, batteryId) {
   const healthColor = battery.health >= 90 ? '#D4654A' : battery.health >= 70 ? '#c75a3f' : '#b43c28';
   const healthLabel = battery.health >= 90 ? 'Excellent' : battery.health >= 70 ? 'Good' : 'Degraded';
 
-  // Temperature - coral gradient
+  // Temperature - average of NTC1-4 (first 4 NTC sensors), fallback to pod temperature
   const temp = battery.temperature || 'N/A';
   const tempVal = typeof temp === 'number' ? temp : 0;
   const tempColor = tempVal <= 35 ? '#D4654A' : tempVal <= 45 ? '#c75a3f' : '#b43c28';
@@ -156,10 +156,10 @@ export async function renderBatteryDetail(container, batteryId) {
             <span class="material-symbols-outlined" style="font-size:22px;color:${tempColor}">thermostat</span>
           </div>
           <p style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Temperature</p>
-          <h3 style="font-size:1.5rem;font-weight:800;color:#1e293b;margin-bottom:4px">${temp}°C</h3>
-          <span style="padding:3px 10px;border-radius:var(--radius-full);font-size:9px;font-weight:700;background:${tempColor}15;color:${tempColor};border:1px solid ${tempColor}30">${tempLabel}</span>
+          <h3 id="temp-card-value" style="font-size:1.5rem;font-weight:800;color:#1e293b;margin-bottom:4px">${temp}°C</h3>
+          <span id="temp-card-label" style="padding:3px 10px;border-radius:var(--radius-full);font-size:9px;font-weight:700;background:${tempColor}15;color:${tempColor};border:1px solid ${tempColor}30">${tempLabel}</span>
           <div style="margin-top:10px;width:100%;height:6px;background:#f1f5f9;border-radius:var(--radius-full);overflow:hidden">
-            <div style="width:${Math.min(tempVal / 60 * 100, 100)}%;height:100%;background:${tempColor};border-radius:var(--radius-full);transition:width 0.5s"></div>
+            <div id="temp-card-bar" style="width:${Math.min(tempVal / 60 * 100, 100)}%;height:100%;background:${tempColor};border-radius:var(--radius-full);transition:width 0.5s"></div>
           </div>
         </div>
 
@@ -601,6 +601,30 @@ export async function renderBatteryDetail(container, batteryId) {
       const capInitEl = document.getElementById('tele-cap-init');
       if (capInitEl && t.capInitial != null && Number(t.capInitial) > 0) capInitEl.textContent = Number(t.capInitial).toFixed(0);
       if (podEl && t.podTemp != null && Number(t.podTemp) > 0) podEl.textContent = Number(t.podTemp).toFixed(1);
+
+      // Update temperature card with average of NTC1-4
+      if (t.ntcTemps && Array.isArray(t.ntcTemps)) {
+        const ntcFirst4 = t.ntcTemps.slice(0, 4).filter(v => Number(v) > 0);
+        if (ntcFirst4.length > 0) {
+          const avgTemp = ntcFirst4.reduce((s, v) => s + Number(v), 0) / ntcFirst4.length;
+          const tempCardVal = document.getElementById('temp-card-value');
+          const tempCardBar = document.getElementById('temp-card-bar');
+          const tempCardLabel = document.getElementById('temp-card-label');
+          if (tempCardVal) {
+            tempCardVal.textContent = avgTemp.toFixed(1) + '\u00B0C';
+            const color = avgTemp <= 35 ? '#D4654A' : avgTemp <= 45 ? '#c75a3f' : '#b43c28';
+            tempCardVal.style.color = '#1e293b';
+            if (tempCardLabel) {
+              const label = avgTemp <= 35 ? 'OPTIMAL' : avgTemp <= 45 ? 'WARM' : 'HOT';
+              tempCardLabel.textContent = label;
+              tempCardLabel.style.background = color + '15';
+              tempCardLabel.style.color = color;
+              tempCardLabel.style.borderColor = color + '30';
+            }
+            if (tempCardBar) tempCardBar.style.width = Math.min(avgTemp / 60 * 100, 100) + '%';
+          }
+        }
+      }
 
       // Cell voltages
       if (t.cellVoltages && Array.isArray(t.cellVoltages)) {
