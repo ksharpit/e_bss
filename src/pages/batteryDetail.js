@@ -93,7 +93,7 @@ export async function renderBatteryDetail(container, batteryId) {
   const lastSwapStr = lastSwapDate ? lastSwapDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) + ' at ' + lastSwapDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : 'Never';
 
   // Total revenue from this battery's swaps
-  const totalRevenue = batterySwaps.reduce((sum, s) => sum + (s.amount || 0), 0);
+  const totalRevenue = batterySwaps.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
 
   container.innerHTML = `
     <div style="max-width:100%;overflow:hidden">

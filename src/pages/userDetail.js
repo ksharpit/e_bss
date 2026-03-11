@@ -51,7 +51,7 @@ export async function renderUserDetail(container, userId) {
   // sort swaps newest first
   swaps.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   const swapOnlyCount  = swaps.filter(s => s.type !== 'allocation').length;
-  const totalSwapSpent = swaps.reduce((acc, s) => acc + (s.amount || 0), 0);
+  const totalSwapSpent = swaps.reduce((acc, s) => acc + (Number(s.amount) || 0), 0);
 
   container.innerHTML = `
     <div style="max-width:100%;overflow:hidden">

@@ -48,8 +48,8 @@ export async function renderRevenue(container) {
 
   // ── Deposit vs Swap revenue - from REAL transactions ──
   const depositTxns = transactions.filter(t => t.type === 'security_deposit' && t.status === 'completed');
-  const totalDepositRevenue = depositTxns.reduce((sum, t) => sum + (t.amount || 0), 0);
-  const totalSwapRevenue = swaps.reduce((sum, s) => sum + (s.amount || 0), 0);
+  const totalDepositRevenue = depositTxns.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  const totalSwapRevenue = swaps.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
   const totalRevenue = totalDepositRevenue + totalSwapRevenue;
 
   const totalRevenueToday = stations.reduce((s, st) => s + st._revenueToday, 0);
@@ -220,14 +220,14 @@ function buildMonthlyTrend(swaps, transactions) {
     if (!s.timestamp) return;
     const key = s.timestamp.slice(0, 7);
     const month = months.find(m => m.key === key);
-    if (month) month.swapRev += (s.amount || 0);
+    if (month) month.swapRev += (Number(s.amount) || 0);
   });
   const deposits = transactions.filter(t => t.type === 'security_deposit' && t.status === 'completed');
   deposits.forEach(t => {
     if (!t.timestamp) return;
     const key = t.timestamp.slice(0, 7);
     const month = months.find(m => m.key === key);
-    if (month) month.depositRev += (t.amount || 0);
+    if (month) month.depositRev += (Number(t.amount) || 0);
   });
   return months;
 }

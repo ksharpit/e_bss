@@ -38,7 +38,7 @@ export async function renderStations(container) {
   const revByStation = {};
   todaySwaps.forEach(s => {
     swapsByStation[s.stationId] = (swapsByStation[s.stationId] || 0) + 1;
-    revByStation[s.stationId] = (revByStation[s.stationId] || 0) + (s.amount || 0);
+    revByStation[s.stationId] = (revByStation[s.stationId] || 0) + (Number(s.amount) || 0);
   });
 
   // Normalize with real data
@@ -55,7 +55,7 @@ export async function renderStations(container) {
   const maintenanceCount = stations.filter(s => s.status === 'maintenance').length;
   const totalPods        = stations.reduce((a, s) => a + (s.pods || 0), 0);
   const totalSwaps       = todaySwaps.length;
-  const totalRevenue     = todaySwaps.reduce((a, s) => a + (s.amount || 0), 0);
+  const totalRevenue     = todaySwaps.reduce((a, s) => a + (Number(s.amount) || 0), 0);
   const totalAvailable   = batteries.filter(b => b.status === 'available').length;
 
   // Extract unique cities from station locations
