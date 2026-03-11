@@ -209,6 +209,9 @@ async function handleTelemetry(pool, deviceId, data) {
     return;
   }
 
+  // Debug: log normalized values for troubleshooting
+  console.log(`MQTT: device=${deviceId} normalized: V=${voltage} I=${currentDraw} SOC=${soc} SOH=${soh} cycle=${cycleCount}(${typeof cycleCount}) cap=${capAvailable} temp=${podTemp}`);
+
   try {
     // Insert telemetry into hypertable
     await pool.query(`
