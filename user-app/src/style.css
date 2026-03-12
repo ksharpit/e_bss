@@ -877,29 +877,34 @@ html, body {
 }
 .scan-title { font-size: 1.125rem; font-weight: 900; color: #fff; letter-spacing: -0.04em; margin-bottom: 4px; }
 .scan-sub { font-size: var(--font-xs); color: var(--text-soft); font-weight: 600; }
-.qr-viewfinder-wrap { display: flex; justify-content: center; padding: 10px 0 22px; }
+.qr-viewfinder-wrap { display: flex; flex-direction: column; align-items: center; padding: 10px 0 8px; }
 .qr-viewfinder {
   width: 210px; height: 210px; position: relative;
   border-radius: 18px; overflow: hidden;
   background: rgba(0,0,0,0.50);
   border: 1px solid rgba(255,255,255,0.06);
 }
-.qr-corner { position: absolute; width: 28px; height: 28px; border-color: var(--gold); border-style: solid; }
+.qr-corner { position: absolute; width: 28px; height: 28px; border-color: var(--gold); border-style: solid; z-index: 5; pointer-events: none; }
 .qr-corner.tl { top: 10px; left: 10px; border-width: 3px 0 0 3px; border-radius: 5px 0 0 0; }
 .qr-corner.tr { top: 10px; right: 10px; border-width: 3px 3px 0 0; border-radius: 0 5px 0 0; }
 .qr-corner.bl { bottom: 10px; left: 10px; border-width: 0 0 3px 3px; border-radius: 0 0 0 5px; }
 .qr-corner.br { bottom: 10px; right: 10px; border-width: 0 3px 3px 0; border-radius: 0 0 5px 0; }
 .qr-scan-line {
-  position: absolute; left: 12px; right: 12px; height: 2px;
+  position: absolute; left: 12px; right: 12px; height: 2px; z-index: 5; pointer-events: none;
   background: linear-gradient(90deg, transparent, var(--gold), transparent);
   border-radius: 1px; box-shadow: 0 0 14px rgba(201,169,110,0.75);
   animation: qrScan 2.2s ease-in-out infinite;
 }
 @keyframes qrScan { 0% { top: 12px; } 50% { top: calc(100% - 14px); } 100% { top: 12px; } }
 .qr-inner {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 4;
 }
 .qr-inner .material-symbols-outlined { font-size: 72px; color: rgba(255,255,255,0.04); font-variation-settings: 'FILL' 1; }
+/* html5-qrcode overrides - hide default chrome */
+#qr-reader { overflow: hidden; }
+#qr-reader video { object-fit: cover !important; border-radius: 18px; }
+#qr-reader img[alt="Info icon"], #qr-reader br { display: none !important; }
+#qr-shaded-region { display: none !important; }
 
 /* Demo station sheet - DARK */
 .scan-demo-sheet {

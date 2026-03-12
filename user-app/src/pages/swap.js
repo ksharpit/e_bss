@@ -4,10 +4,15 @@
 import { showToast } from '../utils/toast.js';
 import { apiFetch } from '../utils/apiFetch.js';
 import { getUserLocation, stationDistance } from '../utils/geo.js';
+import { Html5Qrcode } from 'html5-qrcode';
 
 const SWAP_FEE  = 65; // INR per swap
+let activeScanner = null; // track scanner instance for cleanup
 
 export async function renderScan(container, userId, setTab) {
+  // Stop any previous scanner
+  await stopScanner();
+
   // Load data
   let user = null, stations = [], batteries = [];
   try {
@@ -35,6 +40,10 @@ export async function renderScan(container, userId, setTab) {
 
   const onlineStations = stations.filter(s => s.status === 'online');
 
+  // Build station lookup by ID
+  const stationMap = {};
+  stations.forEach(s => { stationMap[s.id] = s; });
+
   // Get user location for distance
   const userLoc = await getUserLocation();
   const distMap = {};
@@ -42,15 +51,77 @@ export async function renderScan(container, userId, setTab) {
     onlineStations.forEach(s => {
       distMap[s.id] = stationDistance(userLoc.lat, userLoc.lng, s);
     });
-    // Sort by distance
     onlineStations.sort((a, b) => parseFloat(distMap[a.id] || 999) - parseFloat(distMap[b.id] || 999));
   }
 
-  showQrScanner(container, user, onlineStations, stationBats, batteries, setTab, distMap);
+  showQrScanner(container, user, onlineStations, stationBats, batteries, setTab, distMap, stationMap);
+}
+
+// Stop active scanner safely
+async function stopScanner() {
+  if (activeScanner) {
+    try {
+      const state = activeScanner.getState();
+      if (state === 2) { // SCANNING
+        await activeScanner.stop();
+      }
+    } catch { /* ignore */ }
+    activeScanner = null;
+  }
+}
+
+// Handle a scanned QR code result
+function handleQrResult(decodedText, user, stations, stationMap, stationBats, batteries, container, setTab) {
+  // Extract station ID from QR text
+  // Supports: plain ID ("STN-001"), URL with stationId param, or JSON with id field
+  let stationId = null;
+
+  const trimmed = decodedText.trim();
+  if (trimmed.startsWith('STN-')) {
+    stationId = trimmed;
+  } else if (trimmed.startsWith('{')) {
+    try { stationId = JSON.parse(trimmed).id || JSON.parse(trimmed).stationId; } catch { /* ignore */ }
+  } else if (trimmed.includes('stationId=')) {
+    const match = trimmed.match(/stationId=([^&]+)/);
+    if (match) stationId = match[1];
+  } else {
+    // Fallback: treat entire text as station ID
+    stationId = trimmed;
+  }
+
+  if (!stationId || !stationMap[stationId]) {
+    showToast('Unknown station QR code', 'warning');
+    return;
+  }
+
+  const station = stationMap[stationId];
+
+  if (station.status !== 'online') {
+    showToast('This station is currently offline', 'warning');
+    return;
+  }
+
+  if (!user.batteryId) {
+    showToast('No battery allocated to your account', 'warning');
+    return;
+  }
+
+  const avail = stationBats[stationId] || [];
+  if (avail.length === 0) {
+    showToast('No charged batteries available at this station', 'warning');
+    return;
+  }
+
+  const userBat = batteries.find(b => b.id === user.batteryId);
+  const newBat  = avail[0];
+
+  // Stop scanner before showing confirmation
+  stopScanner();
+  showSwapConfirmation(container, user, station, userBat, newBat, batteries, setTab);
 }
 
 // ── QR Scanner View ───────────────────────────────────────
-function showQrScanner(container, user, onlineStations, stationBats, batteries, setTab, distMap = {}) {
+function showQrScanner(container, user, onlineStations, stationBats, batteries, setTab, distMap = {}, stationMap = {}) {
   container.innerHTML = `
     <div class="scan-page">
       <div class="scan-page-top">
@@ -58,21 +129,25 @@ function showQrScanner(container, user, onlineStations, stationBats, batteries, 
         <p class="scan-sub">Point your camera at the QR code on the station</p>
       </div>
 
-      <!-- Animated viewfinder -->
+      <!-- Camera viewfinder -->
       <div class="qr-viewfinder-wrap">
-        <div class="qr-viewfinder">
+        <div class="qr-viewfinder" id="qr-viewfinder">
           <div class="qr-corner tl"></div>
           <div class="qr-corner tr"></div>
           <div class="qr-corner bl"></div>
           <div class="qr-corner br"></div>
           <div class="qr-scan-line"></div>
-          <div class="qr-inner">
+          <div class="qr-inner" id="qr-placeholder">
             <span class="material-symbols-outlined">qr_code_2</span>
           </div>
+          <div id="qr-reader" style="width:100%;height:100%;position:absolute;inset:0;z-index:0"></div>
+        </div>
+        <div id="qr-status" style="text-align:center;padding:6px 0 0;font-size:var(--font-xs);color:var(--text-soft);font-weight:600">
+          Starting camera...
         </div>
       </div>
 
-      <!-- Station selector -->
+      <!-- Station selector fallback -->
       <div class="scan-demo-sheet">
         <p class="scan-demo-label">Or select a station</p>
 
@@ -110,12 +185,16 @@ function showQrScanner(container, user, onlineStations, stationBats, batteries, 
     </div>
   `;
 
+  // Start camera QR scanner
+  startQrScanner(user, onlineStations, stationMap, stationBats, batteries, container, setTab);
+
   if (!user.batteryId) return;
 
+  // Manual station selection (fallback)
   container.querySelectorAll('.scan-station-btn[data-station]').forEach(btn => {
     btn.addEventListener('click', () => {
       const stationId = btn.dataset.station;
-      const station   = { id: stationId, ...getStationById(stationId, container) };
+      const station   = stationMap[stationId] || { id: stationId, name: stationId, location: '' };
       const avail     = stationBats[stationId] || [];
 
       if (avail.length === 0) {
@@ -123,22 +202,68 @@ function showQrScanner(container, user, onlineStations, stationBats, batteries, 
         return;
       }
 
-      // Find user's current battery
       const userBat = batteries.find(b => b.id === user.batteryId);
       const newBat  = avail[0];
 
+      stopScanner();
       showSwapConfirmation(container, user, station, userBat, newBat, batteries, setTab);
     });
   });
 }
 
-function getStationById(id, container) {
-  // Re-extract from button text as fallback
-  const btn = container.querySelector(`.scan-station-btn[data-station="${id}"]`);
-  return {
-    name: btn?.querySelector('.scan-station-name')?.textContent || id,
-    location: btn?.querySelector('.scan-station-loc')?.textContent?.split('·')[0]?.trim() || '',
-  };
+// ── Start Camera QR Scanner ──────────────────────────────
+async function startQrScanner(user, stations, stationMap, stationBats, batteries, container, setTab) {
+  const statusEl = document.getElementById('qr-status');
+  const placeholder = document.getElementById('qr-placeholder');
+
+  try {
+    const html5Qr = new Html5Qrcode('qr-reader');
+    activeScanner = html5Qr;
+
+    let processing = false;
+
+    await html5Qr.start(
+      { facingMode: 'environment' },
+      {
+        fps: 10,
+        qrbox: { width: 180, height: 180 },
+        aspectRatio: 1.0,
+      },
+      (decodedText) => {
+        if (processing) return;
+        processing = true;
+        handleQrResult(decodedText, user, stations, stationMap, stationBats, batteries, container, setTab);
+      },
+      () => {} // ignore scan failures (no QR in frame)
+    );
+
+    // Camera started - hide placeholder, update status
+    if (placeholder) placeholder.style.display = 'none';
+    if (statusEl) statusEl.textContent = 'Scanning...';
+
+    // Style the video element to fill the viewfinder
+    const readerEl = document.getElementById('qr-reader');
+    if (readerEl) {
+      const video = readerEl.querySelector('video');
+      if (video) {
+        video.style.objectFit = 'cover';
+        video.style.borderRadius = '18px';
+      }
+      // Hide the default html5-qrcode UI chrome
+      readerEl.querySelectorAll('img, br').forEach(el => el.style.display = 'none');
+      const scanRegion = readerEl.querySelector('#qr-shaded-region');
+      if (scanRegion) scanRegion.style.display = 'none';
+    }
+
+  } catch (err) {
+    // Camera denied or not available - show fallback
+    if (placeholder) {
+      placeholder.innerHTML = `<span class="material-symbols-outlined" style="font-size:40px;color:var(--text-soft);opacity:0.3">videocam_off</span>`;
+    }
+    if (statusEl) {
+      statusEl.innerHTML = `Camera not available. Select a station below.`;
+    }
+  }
 }
 
 // ── Swap Confirmation Sheet ───────────────────────────────
