@@ -3,8 +3,20 @@ import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import admin from 'firebase-admin';
+import { readFileSync, existsSync } from 'fs';
 import pool, { rowToCamel, bodyToSnake } from './db.js';
 import { initMqtt } from './mqtt.js';
+
+// Initialize Firebase Admin for phone auth verification
+const fbServicePath = process.env.FIREBASE_SA_PATH || './server/firebase-service-account.json';
+if (existsSync(fbServicePath)) {
+  const sa = JSON.parse(readFileSync(fbServicePath, 'utf8'));
+  admin.initializeApp({ credential: admin.credential.cert(sa) });
+  console.log('Firebase Admin initialized');
+} else {
+  console.warn('Firebase service account not found at', fbServicePath, '- phone auth verification disabled');
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || 'electica-bss-secret-key-change-in-production';
 const PORT = process.env.PORT || 3001;
@@ -106,32 +118,34 @@ app.post('/auth/agent/login', async (req, res) => {
   }
 });
 
-// User - send OTP (demo: always succeeds)
-app.post('/auth/user/send-otp', (req, res) => {
-  const { phone } = req.body;
-  if (!phone) {
-    return res.status(400).json({ error: 'Phone number required' });
-  }
-  res.json({ success: true, message: 'OTP sent' });
-});
-
-// User - verify OTP
-app.post('/auth/user/verify-otp', async (req, res) => {
-  const { phone, otp } = req.body;
-  if (!phone || !otp) {
-    return res.status(400).json({ error: 'Phone and OTP required' });
-  }
-
-  if (otp.length !== 6) {
-    return res.status(400).json({ error: 'OTP must be 6 digits' });
+// User - verify Firebase phone auth token
+app.post('/auth/user/verify-firebase', async (req, res) => {
+  const { firebaseToken } = req.body;
+  if (!firebaseToken) {
+    return res.status(400).json({ error: 'Firebase token required' });
   }
 
   try {
-    const { rows } = await pool.query('SELECT * FROM users WHERE phone = $1', [phone]);
+    // Verify Firebase ID token
+    const decoded = await admin.auth().verifyIdToken(firebaseToken);
+    const phone = decoded.phone_number; // e.g. "+919876543210"
+    if (!phone) {
+      return res.status(400).json({ error: 'No phone number in token' });
+    }
+
+    // Format phone to match our DB format: "+91 98765-43210"
+    const digits = phone.replace(/\D/g, '').slice(-10);
+    const formatted = '+91 ' + digits.slice(0, 5) + '-' + digits.slice(5);
+
+    // Look up user by phone (try both formats)
+    const { rows } = await pool.query(
+      'SELECT * FROM users WHERE phone = $1 OR phone = $2',
+      [formatted, phone]
+    );
     const user = rows[0];
 
     if (!user) {
-      return res.json({ success: true, isNewUser: true, phone });
+      return res.json({ success: true, isNewUser: true, phone: formatted });
     }
 
     const u = rowToCamel(user);
@@ -148,21 +162,33 @@ app.post('/auth/user/verify-otp', async (req, res) => {
       user: { id: u.id, name: u.name, phone: u.phone, kycStatus: u.kycStatus }
     });
   } catch (err) {
-    console.error('Verify OTP error:', err.message);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Firebase verify error:', err.message);
+    res.status(401).json({ error: 'Invalid or expired token' });
   }
 });
 
-// User - register
+// User - register (with Firebase token verification)
 app.post('/auth/user/register', async (req, res) => {
-  const { name, phone, vehicle } = req.body;
-  if (!name || !phone) {
-    return res.status(400).json({ error: 'Name and phone required' });
+  const { firebaseToken, name, vehicle, vehicleId, initials, aadhaar, pan } = req.body;
+  if (!firebaseToken || !name) {
+    return res.status(400).json({ error: 'Firebase token and name required' });
   }
 
   try {
+    // Verify Firebase token and extract phone
+    const decoded = await admin.auth().verifyIdToken(firebaseToken);
+    const rawPhone = decoded.phone_number;
+    if (!rawPhone) {
+      return res.status(400).json({ error: 'No phone number in token' });
+    }
+    const digits = rawPhone.replace(/\D/g, '').slice(-10);
+    const phone = '+91 ' + digits.slice(0, 5) + '-' + digits.slice(5);
+
     // Check if exists
-    const existing = await pool.query('SELECT id FROM users WHERE phone = $1', [phone]);
+    const existing = await pool.query(
+      'SELECT id FROM users WHERE phone = $1 OR phone = $2',
+      [phone, rawPhone]
+    );
     if (existing.rows.length > 0) {
       return res.status(409).json({ error: 'User already exists' });
     }
@@ -178,11 +204,11 @@ app.post('/auth/user/register', async (req, res) => {
     const id = `USR-${String(nextNum).padStart(3, '0')}`;
 
     await pool.query(`
-      INSERT INTO users (id, name, phone, vehicle, kyc_status, deposit_paid, registered_at)
-      VALUES ($1, $2, $3, $4, 'pending', false, NOW())
-    `, [id, name, phone, vehicle || '']);
+      INSERT INTO users (id, name, initials, phone, vehicle, vehicle_id, aadhaar, pan, kyc_status, deposit_paid, registered_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', false, NOW())
+    `, [id, name, initials || name.slice(0, 2).toUpperCase(), phone, vehicle || '', vehicleId || '', aadhaar || '', pan || '']);
 
-    const newUser = { id, name, phone, vehicle: vehicle || '', kycStatus: 'pending', depositPaid: false, batteryId: null, registeredAt: new Date().toISOString().split('T')[0], onboardedAt: null };
+    const newUser = { id, name, phone, vehicle: vehicle || '', kycStatus: 'pending', depositPaid: false, batteryId: null };
 
     const token = jwt.sign(
       { id, role: 'user', name, phone },
@@ -193,6 +219,9 @@ app.post('/auth/user/register', async (req, res) => {
     res.status(201).json({ token, user: newUser });
   } catch (err) {
     console.error('Register error:', err.message);
+    if (err.code === 'auth/id-token-expired') {
+      return res.status(401).json({ error: 'Token expired. Please verify your phone again.' });
+    }
     res.status(500).json({ error: 'Server error' });
   }
 });

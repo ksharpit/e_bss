@@ -26,6 +26,9 @@ dist-ssr
 # AWS keys - NEVER commit
 *.pem
 
+# Firebase service account - NEVER commit
+server/firebase-service-account.json
+
 # Internal dev notes (kept locally, not on GitHub)
 DOCUMENTATION.md
 CHANGES.md

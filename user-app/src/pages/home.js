@@ -3,8 +3,7 @@
 // ============================================
 import { showToast } from '../utils/toast.js';
 import { apiFetch } from '../utils/apiFetch.js';
-
-const MOCK_DIST = { 'BSS-001': '0.8', 'BSS-002': '3.2', 'BSS-003': '7.1', 'BSS-004': '9.4', 'BSS-005': '2.1' };
+import { getUserLocation, stationDistance } from '../utils/geo.js';
 
 function greeting() {
   const h = new Date().getHours();
@@ -58,6 +57,9 @@ export async function renderHome(container, userId, setTab) {
     return;
   }
 
+  // Get user location for distance calculation
+  const userLoc = await getUserLocation();
+
   // Compute nearest station with available batteries
   const onlineStations = stations.filter(s => s.status === 'online');
   const stationAvail = {};
@@ -70,15 +72,24 @@ export async function renderHome(container, userId, setTab) {
     }
   });
 
-  // Sort by mocked distance, prioritise stations with available batteries
+  // Compute real distances
+  const distMap = {};
+  if (userLoc) {
+    onlineStations.forEach(s => {
+      distMap[s.id] = stationDistance(userLoc.lat, userLoc.lng, s);
+    });
+  }
+
+  // Sort by real distance, prioritise stations with available batteries
   const sortedStations = [...onlineStations].sort((a, b) => {
     const av = (stationAvail[a.id]?.available || 0) > 0 ? 0 : 1;
     const bv = (stationAvail[b.id]?.available || 0) > 0 ? 0 : 1;
     if (av !== bv) return av - bv;
-    return parseFloat(MOCK_DIST[a.id] || 99) - parseFloat(MOCK_DIST[b.id] || 99);
+    return parseFloat(distMap[a.id] || 999) - parseFloat(distMap[b.id] || 999);
   });
   const nearest = sortedStations[0];
   const nearestAvail = nearest ? (stationAvail[nearest.id]?.available || 0) : 0;
+  const nearestDist = nearest ? distMap[nearest.id] : null;
 
   container.innerHTML = `
     <!-- Dark Hero with Battery Gauge -->
@@ -208,10 +219,10 @@ export async function renderHome(container, userId, setTab) {
               ${nearest.location}
             </div>
           </div>
-          <div class="station-dist-chip">
+          ${nearestDist ? `<div class="station-dist-chip">
             <span class="material-symbols-outlined">near_me</span>
-            ${MOCK_DIST[nearest.id] || '?'} km
-          </div>
+            ${nearestDist} km
+          </div>` : ''}
         </div>
         <div class="station-avail-row">
           <div class="station-avail-count">

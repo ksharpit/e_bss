@@ -3,9 +3,9 @@
 // ============================================
 import { showToast } from '../utils/toast.js';
 import { apiFetch } from '../utils/apiFetch.js';
+import { getUserLocation, stationDistance } from '../utils/geo.js';
 
-const MOCK_DIST = { 'BSS-001': '0.8', 'BSS-002': '3.2', 'BSS-003': '7.1', 'BSS-004': '9.4', 'BSS-005': '2.1' };
-const SWAP_FEE  = 65; // INR per swap (consistent with existing data)
+const SWAP_FEE  = 65; // INR per swap
 
 export async function renderScan(container, userId, setTab) {
   // Load data
@@ -35,11 +35,22 @@ export async function renderScan(container, userId, setTab) {
 
   const onlineStations = stations.filter(s => s.status === 'online');
 
-  showQrScanner(container, user, onlineStations, stationBats, batteries, setTab);
+  // Get user location for distance
+  const userLoc = await getUserLocation();
+  const distMap = {};
+  if (userLoc) {
+    onlineStations.forEach(s => {
+      distMap[s.id] = stationDistance(userLoc.lat, userLoc.lng, s);
+    });
+    // Sort by distance
+    onlineStations.sort((a, b) => parseFloat(distMap[a.id] || 999) - parseFloat(distMap[b.id] || 999));
+  }
+
+  showQrScanner(container, user, onlineStations, stationBats, batteries, setTab, distMap);
 }
 
 // ── QR Scanner View ───────────────────────────────────────
-function showQrScanner(container, user, onlineStations, stationBats, batteries, setTab) {
+function showQrScanner(container, user, onlineStations, stationBats, batteries, setTab, distMap = {}) {
   container.innerHTML = `
     <div class="scan-page">
       <div class="scan-page-top">
@@ -61,9 +72,9 @@ function showQrScanner(container, user, onlineStations, stationBats, batteries, 
         </div>
       </div>
 
-      <!-- Demo station selector -->
+      <!-- Station selector -->
       <div class="scan-demo-sheet">
-        <p class="scan-demo-label">Demo - Select a Station</p>
+        <p class="scan-demo-label">Or select a station</p>
 
         ${!user.batteryId ? `
         <div class="scan-no-battery">
@@ -73,7 +84,7 @@ function showQrScanner(container, user, onlineStations, stationBats, batteries, 
 
         ${onlineStations.map(s => {
           const avail = stationBats[s.id]?.length || 0;
-          const dist  = MOCK_DIST[s.id];
+          const dist  = distMap[s.id];
           return `
           <button class="scan-station-btn ${!user.batteryId ? 'disabled' : ''}"
             data-station="${s.id}" ${!user.batteryId ? 'disabled' : ''}>
@@ -310,7 +321,7 @@ async function processSwap(user, station, oldBat, newBat) {
     body: JSON.stringify({
       batteryId: newBat?.id || user.batteryId,
       swapCount: (user.swapCount || 0) + 1,
-      totalSpent: (user.totalSpent || 0) + SWAP_FEE,
+      totalSpent: (Number(user.totalSpent) || 0) + SWAP_FEE,
       lastSwap: now,
     }),
   });

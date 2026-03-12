@@ -1,11 +1,15 @@
 // ============================================
-// Auth - Phone + OTP + Registration (Demo)
+// Auth - Firebase Phone OTP + Registration
 // ============================================
 import { showToast } from '../utils/toast.js';
 import { API_BASE } from '../config.js';
 import { apiFetch, setToken } from '../utils/apiFetch.js';
+import { setupRecaptcha, sendOtp, getFirebaseIdToken } from '../utils/firebase.js';
 
 function normalizePhone(p) { return p.replace(/\D/g, '').slice(-10); }
+
+// Stored between steps
+let confirmationResult = null;
 
 // onSuccess(userId, name) - verified user logged in
 // onPending(userId, name) - pending user logged in or new registration
@@ -14,11 +18,8 @@ export function renderAuth(container, onSuccess, onPending) {
 }
 
 // ── Step 1: Phone Number ──────────────────────────────────
-async function renderPhoneStep(container, onSuccess, onPending) {
-  let demoUsers = [];
-  try {
-    demoUsers = await apiFetch('/users?kycStatus=verified&_limit=3').then(r => r.ok ? r.json() : []);
-  } catch { /* show form anyway */ }
+function renderPhoneStep(container, onSuccess, onPending) {
+  confirmationResult = null;
 
   container.innerHTML = `
     <div class="auth-screen">
@@ -34,10 +35,10 @@ async function renderPhoneStep(container, onSuccess, onPending) {
 
       <div class="auth-card">
         <h2 class="auth-step-title">Enter your mobile</h2>
-        <p class="auth-step-sub">We'll verify your Electica account.</p>
+        <p class="auth-step-sub">We'll send a verification code to your number.</p>
 
         <div class="phone-input-wrap">
-          <div class="phone-prefix">🇮🇳 +91</div>
+          <div class="phone-prefix">\u{1F1EE}\u{1F1F3} +91</div>
           <input id="auth-phone" class="phone-input" type="tel" inputmode="numeric"
             placeholder="98765 43210" maxlength="10" autocomplete="tel" />
         </div>
@@ -46,15 +47,6 @@ async function renderPhoneStep(container, onSuccess, onPending) {
           <span class="material-symbols-outlined">send</span>
           Continue
         </button>
-
-        ${demoUsers.length ? `
-        <div class="auth-demo-hint">
-          <span class="material-symbols-outlined">info</span>
-          <p>
-            Demo - existing accounts:<br>
-            ${demoUsers.map(u => `<b>${u.phone}</b>`).join(' &nbsp;·&nbsp; ')}
-          </p>
-        </div>` : ''}
 
         <p style="text-align:center;font-size:10px;color:var(--text-soft);margin-top:18px;line-height:1.6">
           By continuing you agree to Electica's Terms of Service and Privacy Policy.
@@ -73,6 +65,9 @@ async function renderPhoneStep(container, onSuccess, onPending) {
     if (e.key === 'Enter') sendBtn.click();
   });
 
+  // Setup invisible reCAPTCHA on the button
+  setupRecaptcha('auth-send-otp');
+
   sendBtn.addEventListener('click', async () => {
     const normalized = normalizePhone(phoneInput.value);
     if (normalized.length !== 10) {
@@ -82,31 +77,26 @@ async function renderPhoneStep(container, onSuccess, onPending) {
     }
 
     sendBtn.disabled = true;
-    sendBtn.innerHTML = `<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Checking...`;
+    sendBtn.innerHTML = `<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Sending OTP...`;
 
     try {
-      // Send OTP via backend
-      const otpRes = await fetch(`${API_BASE}/auth/user/send-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: '+91 ' + normalized.slice(0, 5) + '-' + normalized.slice(5) })
-      });
-
-      if (!otpRes.ok) {
-        showToast('Failed to send OTP', 'error');
-        sendBtn.disabled = false;
-        sendBtn.innerHTML = `<span class="material-symbols-outlined">send</span> Continue`;
-        return;
-      }
-
-      showToast('OTP sent successfully!', 'success');
+      confirmationResult = await sendOtp(normalized);
+      showToast('OTP sent to your phone!', 'success');
       const display = '+91 ' + normalized.slice(0, 5) + '-' + normalized.slice(5);
       renderOtpStep(container, display, normalized, onSuccess, onPending);
-
-    } catch {
-      showToast('Cannot reach server - is the API running?', 'error');
+    } catch (err) {
+      console.error('Firebase sendOtp error:', err);
+      if (err.code === 'auth/too-many-requests') {
+        showToast('Too many attempts. Please try again later.', 'error');
+      } else if (err.code === 'auth/invalid-phone-number') {
+        showToast('Invalid phone number. Please check and try again.', 'error');
+      } else {
+        showToast('Failed to send OTP. Please try again.', 'error');
+      }
       sendBtn.disabled = false;
       sendBtn.innerHTML = `<span class="material-symbols-outlined">send</span> Continue`;
+      // Re-setup reCAPTCHA for retry
+      setupRecaptcha('auth-send-otp');
     }
   });
 }
@@ -115,7 +105,6 @@ async function renderPhoneStep(container, onSuccess, onPending) {
 function renderNewUserOptions(container, normalizedPhone, onSuccess, onPending) {
   const display = '+91 ' + normalizedPhone.slice(0, 5) + '-' + normalizedPhone.slice(5);
 
-  // Overlay a card at bottom
   const existing = container.querySelector('.auth-card');
   if (existing) {
     existing.innerHTML = `
@@ -141,9 +130,11 @@ function renderNewUserOptions(container, normalizedPhone, onSuccess, onPending) 
         Try a different number
       </button>
 
-      <div class="auth-demo-hint" style="margin-top:14px">
-        <span class="material-symbols-outlined">info</span>
-        <p>New accounts require KYC verification and a refundable deposit of <b>INR 3,000</b>. Approval takes 1-2 business days.</p>
+      <div style="margin-top:14px;padding:12px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.22);border-radius:12px;display:flex;align-items:flex-start;gap:8px">
+        <span class="material-symbols-outlined" style="font-size:15px;color:var(--amber);flex-shrink:0;margin-top:1px;font-variation-settings:'FILL' 1">info</span>
+        <p style="font-size:var(--font-xs);color:var(--amber);font-weight:600;line-height:1.6;opacity:0.85">
+          New accounts require KYC verification and a refundable deposit of <b>INR 3,000</b>. Approval takes 1-2 business days.
+        </p>
       </div>
     `;
     document.getElementById('nu-back')?.addEventListener('click', () => renderPhoneStep(container, onSuccess, onPending));
@@ -258,30 +249,28 @@ function renderRegisterStep(container, normalizedPhone, onSuccess, onPending) {
     btn.innerHTML = `<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Submitting...`;
 
     try {
-      const formattedPhone = '+91 ' + normalizedPhone.slice(0, 5) + '-' + normalizedPhone.slice(5);
+      // Get Firebase ID token for server-side verification
+      const firebaseToken = await getFirebaseIdToken();
       const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
       const res = await fetch(`${API_BASE}/auth/user/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          firebaseToken,
           name,
-          phone: formattedPhone,
           vehicle,
           vehicleId,
           initials,
           aadhaar: aadhaar.replace(/(\d{4})/g, '$1-').slice(0, -1),
           pan,
-          swapCount: 0,
-          totalSpent: 0,
-          kycSubmittedAt: new Date().toISOString(),
         }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create account');
 
-      // Store JWT token
+      // Store our JWT token
       setToken(data.token);
 
       showToast('Application submitted!', 'success');
@@ -295,7 +284,7 @@ function renderRegisterStep(container, normalizedPhone, onSuccess, onPending) {
   });
 }
 
-// ── Step 3 (or 2 for pending): OTP Verify ───────────────
+// ── Step 3: OTP Verify ───────────────────────────────────
 function renderOtpStep(container, displayPhone, normalizedPhone, onSuccess, onPending) {
   container.innerHTML = `
     <div class="auth-screen">
@@ -329,11 +318,6 @@ function renderOtpStep(container, displayPhone, normalizedPhone, onSuccess, onPe
           Verify OTP
         </button>
 
-        <div class="auth-demo-hint">
-          <span class="material-symbols-outlined">info</span>
-          <p>Demo mode: enter any 6 digits &nbsp;e.g. <b>1 2 3 4 5 6</b></p>
-        </div>
-
         <div class="resend-row">
           Didn't receive it?
           <span class="resend-link disabled" id="resend-link">Resend in 30s</span>
@@ -342,8 +326,8 @@ function renderOtpStep(container, displayPhone, normalizedPhone, onSuccess, onPe
     </div>
   `;
 
-  wireOtpBoxes(normalizedPhone, displayPhone, onSuccess, onPending);
-  startResendTimer();
+  wireOtpBoxes();
+  startResendTimer(normalizedPhone);
 
   document.getElementById('auth-back')?.addEventListener('click', () => {
     renderPhoneStep(container, onSuccess, onPending);
@@ -365,10 +349,16 @@ function renderOtpStep(container, displayPhone, normalizedPhone, onSuccess, onPe
     btn.innerHTML = `<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Verifying...`;
 
     try {
-      const verifyRes = await fetch(`${API_BASE}/auth/user/verify-otp`, {
+      // Verify OTP with Firebase
+      if (!confirmationResult) throw new Error('Session expired. Please go back and try again.');
+      await confirmationResult.confirm(otp);
+
+      // Get Firebase ID token and verify with our server
+      const firebaseToken = await getFirebaseIdToken();
+      const verifyRes = await fetch(`${API_BASE}/auth/user/verify-firebase`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: displayPhone, otp })
+        body: JSON.stringify({ firebaseToken })
       });
       const data = await verifyRes.json();
 
@@ -380,12 +370,11 @@ function renderOtpStep(container, displayPhone, normalizedPhone, onSuccess, onPe
       }
 
       if (data.isNewUser) {
-        // Phone not found - show registration
         renderNewUserOptions(container, normalizedPhone, onSuccess, onPending);
         return;
       }
 
-      // Store JWT token
+      // Store our JWT token
       setToken(data.token);
 
       if (data.user.kycStatus === 'pending') {
@@ -399,8 +388,15 @@ function renderOtpStep(container, displayPhone, normalizedPhone, onSuccess, onPe
         showToast(`Welcome back, ${data.user.name.split(' ')[0]}!`, 'success');
         if (onSuccess) onSuccess(data.user.id, data.user.name);
       }
-    } catch {
-      showToast('Cannot reach server', 'error');
+    } catch (err) {
+      console.error('OTP verify error:', err);
+      if (err.code === 'auth/invalid-verification-code') {
+        showToast('Incorrect OTP. Please try again.', 'error');
+      } else if (err.code === 'auth/code-expired') {
+        showToast('OTP expired. Please resend.', 'error');
+      } else {
+        showToast(err.message || 'Verification failed', 'error');
+      }
       btn.disabled = false;
       btn.innerHTML = `<span class="material-symbols-outlined">lock_open</span> Verify OTP`;
     }
@@ -408,7 +404,7 @@ function renderOtpStep(container, displayPhone, normalizedPhone, onSuccess, onPe
 }
 
 // ── Helpers ──────────────────────────────────────────────
-function wireOtpBoxes(normalizedPhone, displayPhone, onSuccess, onPending) {
+function wireOtpBoxes() {
   const boxes = Array.from(document.querySelectorAll('.otp-box'));
 
   boxes.forEach((box, i) => {
@@ -445,7 +441,7 @@ function wireOtpBoxes(normalizedPhone, displayPhone, onSuccess, onPending) {
   boxes[0]?.focus();
 }
 
-function startResendTimer() {
+function startResendTimer(normalizedPhone) {
   let sec = 30;
   const update = () => {
     const link = document.getElementById('resend-link');
@@ -454,9 +450,16 @@ function startResendTimer() {
     if (sec <= 0) {
       link.textContent = 'Resend OTP';
       link.classList.remove('disabled');
-      link.addEventListener('click', () => {
-        showToast('OTP resent! (Demo: use any 6 digits)', 'info');
+      link.addEventListener('click', async () => {
         link.classList.add('disabled');
+        link.textContent = 'Sending...';
+        try {
+          setupRecaptcha('auth-verify-btn');
+          confirmationResult = await sendOtp(normalizedPhone);
+          showToast('OTP resent!', 'success');
+        } catch {
+          showToast('Failed to resend OTP', 'error');
+        }
         sec = 30;
         const timer = setInterval(() => {
           const l = document.getElementById('resend-link');
