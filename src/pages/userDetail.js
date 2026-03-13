@@ -242,6 +242,14 @@ export async function renderUserDetail(container, userId) {
     if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
 
     try {
+      // 0. Re-fetch user to check if already approved (prevent double approval)
+      const freshUser = await apiFetch(`/users/${userId}`).then(r => r.ok ? r.json() : null);
+      if (freshUser?.kycStatus === 'verified') {
+        showToast('This user has already been approved', 'warning');
+        renderUserDetail(container, userId);
+        return;
+      }
+
       // 1. Find an available stock battery
       const stockBats = await apiFetch('/batteries?status=stock').then(r => r.json());
       if (!stockBats.length) {

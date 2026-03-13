@@ -446,6 +446,15 @@ async function showApprovalSheet(container, user, userId, agent, onBack, onResub
     confirmBtn.innerHTML = `<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Processing...`;
 
     try {
+      // Re-fetch user to check if already approved (prevent double approval)
+      const freshUser = await apiFetch(`/users/${userId}`).then(r => r.ok ? r.json() : null);
+      if (freshUser?.kycStatus === 'verified') {
+        showToast('This user has already been approved', 'warning');
+        ov.remove();
+        renderCustomerDetail(container, userId, onBack, onResubmit, agent);
+        return;
+      }
+
       const bat = stockBats.find(b => b.id === selectedBatteryId);
       if (!bat) {
         showToast('Selected battery not found - try again', 'error');
