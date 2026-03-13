@@ -1,5 +1,5 @@
 // ============================================
-// User Detail Page - Live API
+// User Detail Page - Full Admin Powers
 // ============================================
 import { icon } from '../components/icons.js';
 import { showToast } from '../utils/toast.js';
@@ -22,6 +22,62 @@ function fmtTime(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) +
     ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+}
+
+// ── Confirmation modal (reusable) ────────────────────────
+function showConfirmModal({ title, message, confirmLabel, confirmColor, requireTypedId, onConfirm }) {
+  // Remove any existing modal
+  document.getElementById('admin-confirm-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'admin-confirm-modal';
+  modal.innerHTML = `
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.15s ease">
+      <div style="background:#fff;border-radius:16px;padding:2rem;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+        <h3 style="font-size:1.125rem;font-weight:700;color:#1e293b;margin-bottom:8px">${title}</h3>
+        <p style="font-size:var(--font-sm);color:#64748b;line-height:1.6;margin-bottom:1.25rem">${message}</p>
+        ${requireTypedId ? `
+        <div style="margin-bottom:1.25rem">
+          <label style="font-size:var(--font-xs);font-weight:600;color:#94a3b8;display:block;margin-bottom:6px">Type <strong style="color:#1e293b">${requireTypedId}</strong> to confirm</label>
+          <input id="confirm-type-input" type="text" placeholder="${requireTypedId}" autocomplete="off"
+            style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:var(--font-sm);font-family:monospace;outline:none;transition:border 0.15s;box-sizing:border-box" />
+        </div>` : ''}
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button id="confirm-cancel-btn" style="padding:10px 20px;border-radius:10px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;font-size:var(--font-sm);font-weight:600;cursor:pointer">Cancel</button>
+          <button id="confirm-action-btn" style="padding:10px 20px;border-radius:10px;background:${confirmColor || '#dc2626'};color:#fff;border:none;font-size:var(--font-sm);font-weight:600;cursor:pointer;opacity:${requireTypedId ? '0.4' : '1'};pointer-events:${requireTypedId ? 'none' : 'auto'};transition:opacity 0.15s">${confirmLabel || 'Confirm'}</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  const cancelBtn = document.getElementById('confirm-cancel-btn');
+  const actionBtn = document.getElementById('confirm-action-btn');
+  const typeInput = document.getElementById('confirm-type-input');
+
+  cancelBtn.addEventListener('click', () => modal.remove());
+  modal.querySelector('div').addEventListener('click', (e) => {
+    if (e.target === modal.querySelector('div')) modal.remove();
+  });
+
+  if (typeInput) {
+    typeInput.focus();
+    typeInput.addEventListener('input', () => {
+      const match = typeInput.value.trim() === requireTypedId;
+      actionBtn.style.opacity = match ? '1' : '0.4';
+      actionBtn.style.pointerEvents = match ? 'auto' : 'none';
+    });
+    typeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && typeInput.value.trim() === requireTypedId) {
+        actionBtn.click();
+      }
+    });
+  }
+
+  actionBtn.addEventListener('click', () => {
+    modal.remove();
+    onConfirm();
+  });
 }
 
 export async function renderUserDetail(container, userId) {
@@ -230,19 +286,40 @@ export async function renderUserDetail(container, userId) {
     </div>
   `;
 
+  // ── Wire up header buttons ──────────────────────────────
   document.getElementById('ud-contact-btn')?.addEventListener('click', () => {
     showToast(`Calling ${user.phone}...`, 'info');
   });
 
-  document.getElementById('ud-approve-btn')?.addEventListener('click', approveKYC);
-  document.getElementById('ud-reject-btn')?.addEventListener('click', rejectKYC);
+  document.getElementById('ud-approve-btn')?.addEventListener('click', () => {
+    showConfirmModal({
+      title: 'Approve KYC',
+      message: `This will verify <strong>${user.name}</strong>, allocate a stock battery, and record the INR 3,000 security deposit. Are you sure?`,
+      confirmLabel: 'Approve',
+      confirmColor: '#16a34a',
+      onConfirm: approveKYC,
+    });
+  });
+
+  document.getElementById('ud-reject-btn')?.addEventListener('click', () => {
+    showConfirmModal({
+      title: 'Reject KYC',
+      message: `This will reject <strong>${user.name}</strong> and require them to resubmit documents. Are you sure?`,
+      confirmLabel: 'Reject KYC',
+      confirmColor: '#dc2626',
+      onConfirm: () => {
+        const reason = window.prompt(`Rejection reason for ${user.name}:`);
+        if (!reason?.trim()) return;
+        rejectKYC(reason.trim());
+      },
+    });
+  });
+
+  // ── Action handlers ─────────────────────────────────────
 
   async function approveKYC() {
-    const btn = document.getElementById('ud-approve-btn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
-
     try {
-      // 0. Re-fetch user to check if already approved (prevent double approval)
+      // Re-fetch user to prevent double approval
       const freshUser = await apiFetch(`/users/${userId}`).then(r => r.ok ? r.json() : null);
       if (freshUser?.kycStatus === 'verified') {
         showToast('This user has already been approved', 'warning');
@@ -250,18 +327,17 @@ export async function renderUserDetail(container, userId) {
         return;
       }
 
-      // 1. Find an available stock battery
+      // Find an available stock battery
       const stockBats = await apiFetch('/batteries?status=stock').then(r => r.json());
       if (!stockBats.length) {
         showToast('No stock batteries available for allocation!', 'error');
-        if (btn) { btn.disabled = false; btn.innerHTML = `${icon('verified', '16px', 'color:#16a34a')} Approve KYC`; }
         return;
       }
       const battery = stockBats[0];
       const now = new Date().toISOString();
       const depositTxnId = `TXN-DP-${String(Date.now()).slice(-6)}`;
 
-      // 2. Mark user as verified + record deposit + assign battery
+      // Mark user as verified + assign battery
       await apiFetch(`/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -274,7 +350,7 @@ export async function renderUserDetail(container, userId) {
         }),
       });
 
-      // 3. Mark battery as deployed, assigned to this user
+      // Mark battery as deployed
       await apiFetch(`/batteries/${battery.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -286,7 +362,7 @@ export async function renderUserDetail(container, userId) {
         }),
       });
 
-      // 4. Record the security deposit transaction
+      // Record security deposit
       await apiFetch('/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -302,7 +378,7 @@ export async function renderUserDetail(container, userId) {
         }),
       });
 
-      // 5. Create allocation swap record visible everywhere
+      // Create allocation swap record
       await apiFetch('/swaps', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -325,19 +401,15 @@ export async function renderUserDetail(container, userId) {
       renderUserDetail(container, userId);
     } catch {
       showToast('Approval failed - check API connection', 'error');
-      if (btn) { btn.disabled = false; btn.innerHTML = `${icon('verified', '16px', 'color:#16a34a')} Approve KYC`; }
     }
   }
 
-  async function rejectKYC() {
-    const reason = window.prompt(`Rejection reason for ${user.name}:`);
-    if (!reason?.trim()) return;
-
+  async function rejectKYC(reason) {
     try {
       await apiFetch(`/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kycStatus: 'rejected', rejectionReason: reason.trim() }),
+        body: JSON.stringify({ kycStatus: 'rejected', rejectionReason: reason }),
       });
       showToast(`KYC rejected for ${user.name}`, 'warning');
       renderUserDetail(container, userId);
@@ -345,6 +417,7 @@ export async function renderUserDetail(container, userId) {
       showToast('Action failed - check API connection', 'error');
     }
   }
+
 }
 
 function statBox(iconName, label, value, color) {

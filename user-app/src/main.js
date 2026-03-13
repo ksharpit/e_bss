@@ -10,6 +10,7 @@ import { renderAuth }     from './pages/auth.js';
 import { renderScan }     from './pages/swap.js';
 import { showToast }      from './utils/toast.js';
 import { apiFetch, clearToken } from './utils/apiFetch.js';
+import { initPullToRefresh } from './utils/pullToRefresh.js';
 
 const AUTH_KEY  = 'electica_auth';
 let currentTab  = 'home';
@@ -91,7 +92,51 @@ function logout() {
 }
 
 // ── Pending Approval Screen ───────────────────────────────
+let pendingPollTimer = null;
+
+function stopPendingPoll() {
+  if (pendingPollTimer) { clearInterval(pendingPollTimer); pendingPollTimer = null; }
+}
+
+async function checkApprovalStatus(userId, { silent = false } = {}) {
+  const btn = document.getElementById('pending-refresh');
+  const statusText = document.getElementById('pending-auto-status');
+  if (btn && !silent) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Checking...`;
+  }
+
+  try {
+    const user = await apiFetch(`/users/${userId}`).then(r => r.ok ? r.json() : null);
+    if (!user) throw new Error('User not found');
+
+    if (user.kycStatus === 'verified') {
+      stopPendingPoll();
+      saveAuth({ userId, name: user.name, kycStatus: 'verified' });
+      showToast('Account approved! Welcome to Electica.', 'success');
+      setTimeout(() => { currentTab = 'home'; renderMainApp(); }, 800);
+      return;
+    }
+
+    if (!silent) {
+      showToast('Still under review - please check back later', 'info');
+    }
+    if (statusText) {
+      statusText.textContent = 'Last checked: ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+  } catch {
+    if (!silent) showToast('Cannot reach server', 'error');
+  }
+
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = `<span class="material-symbols-outlined">refresh</span> Check Approval Status`;
+  }
+}
+
 function renderPendingWrapper(userId) {
+  stopPendingPoll();
+
   app.innerHTML = `
     <div class="pending-screen">
       <div class="pending-glow"></div>
@@ -144,40 +189,22 @@ function renderPendingWrapper(userId) {
         Check Approval Status
       </button>
 
+      <p id="pending-auto-status" style="text-align:center;font-size:10px;color:var(--text-soft);margin-top:10px;font-weight:600;opacity:0.7">Auto-checking every 15 seconds</p>
+
       <button class="pending-logout-btn" id="pending-logout">
         Sign out
       </button>
     </div>
   `;
 
-  document.getElementById('pending-refresh')?.addEventListener('click', async () => {
-    const btn = document.getElementById('pending-refresh');
-    btn.disabled = true;
-    btn.innerHTML = `<span class="material-symbols-outlined" style="animation:spin 1s linear infinite">progress_activity</span> Checking...`;
-
-    try {
-      const user = await apiFetch(`/users/${userId}`).then(r => r.ok ? r.json() : null);
-      if (!user) throw new Error('User not found');
-
-      if (user.kycStatus === 'verified') {
-        saveAuth({ userId, name: user.name, kycStatus: 'verified' });
-        showToast('Account approved! Welcome to Electica.', 'success');
-        setTimeout(() => { currentTab = 'home'; renderMainApp(); }, 800);
-      } else {
-        showToast('Still under review - please check back later', 'info');
-        btn.disabled = false;
-        btn.innerHTML = `<span class="material-symbols-outlined">refresh</span> Check Approval Status`;
-      }
-    } catch {
-      showToast('Cannot reach server', 'error');
-      btn.disabled = false;
-      btn.innerHTML = `<span class="material-symbols-outlined">refresh</span> Check Approval Status`;
-    }
-  });
+  document.getElementById('pending-refresh')?.addEventListener('click', () => checkApprovalStatus(userId));
 
   document.getElementById('pending-logout')?.addEventListener('click', () => {
-    if (window.confirm('Sign out of Electica?')) logout();
+    if (window.confirm('Sign out of Electica?')) { stopPendingPoll(); logout(); }
   });
+
+  // Auto-poll every 15 seconds
+  pendingPollTimer = setInterval(() => checkApprovalStatus(userId, { silent: true }), 15000);
 }
 
 // ── Main app shell ────────────────────────────────────────
@@ -263,17 +290,11 @@ function renderMainApp() {
 
   // Wire nav tabs
   app.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      currentTab = btn.dataset.tab;
-      renderMainApp();
-    });
+    btn.addEventListener('click', () => setTab(btn.dataset.tab));
   });
 
   // Wire center scan button
-  document.getElementById('nav-scan-wrap')?.addEventListener('click', () => {
-    currentTab = 'scan';
-    renderMainApp();
-  });
+  document.getElementById('nav-scan-wrap')?.addEventListener('click', () => setTab('scan'));
 
   renderPage();
 
@@ -446,7 +467,36 @@ function renderMainApp() {
   }
 }
 
-function setTab(tab) { currentTab = tab; renderMainApp(); }
+function setTab(tab) {
+  if (tab !== 'home' && currentTab === 'home') {
+    history.pushState({ tab }, '');
+  } else if (tab !== 'home' && currentTab !== 'home') {
+    history.replaceState({ tab }, '');
+  } else if (tab === 'home') {
+    // Going home - clear forward history
+    history.replaceState({ tab: 'home' }, '');
+  }
+  currentTab = tab;
+  renderMainApp();
+}
+
+// Android back button - called from native Java via evaluateJavascript
+window.__onBackPressed = () => {
+  if (currentTab !== 'home') {
+    currentTab = 'home';
+    renderMainApp();
+    return true; // handled - don't exit app
+  }
+  return false; // not handled - exit app
+};
+
+// Browser back button fallback
+window.addEventListener('popstate', () => {
+  if (currentTab !== 'home') {
+    currentTab = 'home';
+    renderMainApp();
+  }
+});
 
 function renderPage() {
   const content = document.getElementById('page-content');
@@ -458,6 +508,16 @@ function renderPage() {
   else if (currentTab === 'scan')     renderScan(content, USER_ID, setTab);
   else if (currentTab === 'profile')  renderProfile(content, USER_ID, logout);
 }
+
+// ── Pull to Refresh ──────────────────────────────────────
+initPullToRefresh(async () => {
+  const auth = getAuth();
+  if (auth?.kycStatus === 'pending' && auth.userId) {
+    await checkApprovalStatus(auth.userId);
+  } else if (auth?.userId) {
+    renderPage();
+  }
+}, '.page');
 
 // ── Bootstrap ─────────────────────────────────────────────
 showSplash(async () => {

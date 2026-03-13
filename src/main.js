@@ -37,6 +37,7 @@ import { registerRoute, initRouter } from './utils/router.js';
 
 // --- Services ---
 import { startChargingSimulator } from './utils/chargingSimulator.js';
+import { initPullToRefresh } from './utils/pullToRefresh.js';
 
 // --- App shell (sidebar + header + routes) ---
 function initApp() {
@@ -70,6 +71,11 @@ function initApp() {
 
   initRouter('#dashboard');
   startChargingSimulator();
+
+  // Pull to refresh - re-triggers current route
+  initPullToRefresh(() => {
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+  }, '.main-content');
 }
 
 // --- Auth gate ---

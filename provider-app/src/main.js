@@ -12,6 +12,7 @@ import { renderBatteries }      from './pages/batteries.js';
 import { renderLogin }          from './pages/login.js';
 import { showToast }            from './utils/toast.js';
 import { getToken, getAgent, clearToken, apiFetch } from './utils/apiFetch.js';
+import { initPullToRefresh } from './utils/pullToRefresh.js';
 
 let AGENT = null;
 let currentTab = 'home';
@@ -155,5 +156,8 @@ function boot() {
     render();
   }
 }
+
+// Pull to refresh - re-renders current page
+initPullToRefresh(async () => { renderPage(); }, '.page');
 
 boot();

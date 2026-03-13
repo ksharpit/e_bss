@@ -12,6 +12,10 @@
     "vite": "^7.3.1"
   },
   "dependencies": {
+    "@capacitor/android": "^8.2.0",
+    "@capacitor/camera": "^8.0.2",
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/core": "^8.2.0",
     "firebase": "^12.10.0",
     "html5-qrcode": "^2.3.8"
   }

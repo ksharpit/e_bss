@@ -466,6 +466,60 @@ app.put('/:collection/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// Admin: cascade-delete a user (cleanup FK references first)
+app.delete('/admin/users/:id', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // 1. Unassign any battery deployed to this user (return to stock)
+    await client.query(
+      `UPDATE batteries SET status = 'stock', assigned_to = NULL, station_id = NULL WHERE assigned_to = $1`,
+      [id]
+    );
+
+    // 2. Nullify user_id in swaps (preserve swap records)
+    await client.query(
+      `UPDATE swaps SET user_id = NULL WHERE user_id = $1`,
+      [id]
+    );
+
+    // 3. Nullify user_id in transactions (preserve financial records)
+    await client.query(
+      `UPDATE transactions SET user_id = NULL WHERE user_id = $1`,
+      [id]
+    );
+
+    // 4. Clean up tickets referencing this user
+    await client.query(
+      `UPDATE tickets SET user_id = NULL WHERE user_id = $1`,
+      [id]
+    );
+
+    // 5. Delete the user
+    const { rows } = await client.query(
+      `DELETE FROM users WHERE id = $1 RETURNING *`,
+      [id]
+    );
+
+    if (rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    await client.query('COMMIT');
+    res.json(rowToCamel(rows[0]));
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(`DELETE /admin/users/${id} error:`, err.message);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
+});
+
 // DELETE /collection/:id
 app.delete('/:collection/:id', authMiddleware, async (req, res) => {
   const { collection, id } = req.params;

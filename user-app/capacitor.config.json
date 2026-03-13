@@ -1,0 +1,14 @@
+{
+  "appId": "in.electica.bss",
+  "appName": "Electica",
+  "webDir": "dist",
+  "server": {
+    "url": "https://bss.electica.in/app/",
+    "allowNavigation": ["bss.electica.in"]
+  },
+  "plugins": {
+    "Camera": {
+      "permissions": ["camera"]
+    }
+  }
+}

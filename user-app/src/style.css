@@ -101,6 +101,7 @@ html, body {
   -webkit-backdrop-filter: blur(24px);
   border-bottom: 1px solid rgba(255,255,255,0.06);
   padding: 13px 16px 12px;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 13px);
   display: flex; align-items: center; gap: 10px;
   box-shadow: 0 1px 0 rgba(255,255,255,0.04), 0 4px 20px rgba(0,0,0,0.30);
 }
@@ -1070,3 +1071,18 @@ html, body {
 }
 .swap-home-btn:active { transform: scale(0.97); }
 .swap-home-btn .material-symbols-outlined { font-size: 20px; font-variation-settings: 'FILL' 1; }
+
+/* ── Pull to Refresh ────────────────────────── */
+.ptr-indicator {
+  position: fixed; top: -50px; left: calc(50% - 20px);
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--card); border: 1.5px solid var(--border);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; transition: top 0.25s ease, opacity 0.25s;
+  opacity: 0; pointer-events: none;
+}
+.ptr-icon {
+  font-size: 20px; color: var(--gold);
+  transition: transform 0.15s ease;
+}

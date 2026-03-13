@@ -1085,3 +1085,18 @@ html, body {
 .prov-filter-tab.active .prov-filter-badge.open {
   background: rgba(255,255,255,0.3); color: #fff;
 }
+
+/* ── Pull to Refresh ────────────────────────── */
+.ptr-indicator {
+  position: fixed; top: -50px; left: calc(50% - 20px);
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--card); border: 1.5px solid var(--border);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; transition: top 0.25s ease, opacity 0.25s;
+  opacity: 0; pointer-events: none;
+}
+.ptr-icon {
+  font-size: 20px; color: var(--gold);
+  transition: transform 0.15s ease;
+}

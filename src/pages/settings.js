@@ -7,6 +7,61 @@ import { showNewStationModal } from '../components/header.js';
 
 import { apiFetch, getAdminUser, setAdminUser } from '../utils/apiFetch.js';
 
+// ── Admin confirmation modal (reusable) ────────────────────
+function showAdminConfirm({ title, message, confirmLabel, confirmColor, requireTypedId, onConfirm }) {
+  document.getElementById('admin-confirm-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'admin-confirm-modal';
+  modal.innerHTML = `
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeIn 0.15s ease">
+      <div style="background:#fff;border-radius:16px;padding:2rem;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+        <h3 style="font-size:1.125rem;font-weight:700;color:#1e293b;margin-bottom:8px">${title}</h3>
+        <p style="font-size:var(--font-sm);color:#64748b;line-height:1.6;margin-bottom:1.25rem">${message}</p>
+        ${requireTypedId ? `
+        <div style="margin-bottom:1.25rem">
+          <label style="font-size:var(--font-xs);font-weight:600;color:#94a3b8;display:block;margin-bottom:6px">Type <strong style="color:#1e293b">${requireTypedId}</strong> to confirm</label>
+          <input id="acm-type-input" type="text" placeholder="${requireTypedId}" autocomplete="off"
+            style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:var(--font-sm);font-family:monospace;outline:none;transition:border 0.15s;box-sizing:border-box" />
+        </div>` : ''}
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button id="acm-cancel" style="padding:10px 20px;border-radius:10px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;font-size:var(--font-sm);font-weight:600;cursor:pointer;font-family:inherit">Cancel</button>
+          <button id="acm-confirm" style="padding:10px 20px;border-radius:10px;background:${confirmColor || '#dc2626'};color:#fff;border:none;font-size:var(--font-sm);font-weight:600;cursor:pointer;font-family:inherit;opacity:${requireTypedId ? '0.4' : '1'};pointer-events:${requireTypedId ? 'none' : 'auto'};transition:opacity 0.15s">${confirmLabel || 'Confirm'}</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  const cancelBtn = document.getElementById('acm-cancel');
+  const actionBtn = document.getElementById('acm-confirm');
+  const typeInput = document.getElementById('acm-type-input');
+
+  cancelBtn.addEventListener('click', () => modal.remove());
+  modal.querySelector('div').addEventListener('click', (e) => {
+    if (e.target === modal.querySelector('div')) modal.remove();
+  });
+
+  if (typeInput) {
+    typeInput.focus();
+    typeInput.addEventListener('input', () => {
+      const match = typeInput.value.trim() === requireTypedId;
+      actionBtn.style.opacity = match ? '1' : '0.4';
+      actionBtn.style.pointerEvents = match ? 'auto' : 'none';
+    });
+    typeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && typeInput.value.trim() === requireTypedId) {
+        actionBtn.click();
+      }
+    });
+  }
+
+  actionBtn.addEventListener('click', () => {
+    modal.remove();
+    onConfirm();
+  });
+}
+
 // ── Station card builder ────────────────────
 function stationCard(s) {
   const online = s.status === 'online';
@@ -148,12 +203,32 @@ function userListRow(u) {
       </div>
       ${verified
         ? '<span style="display:flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#16a34a;background:#f0fdf4;padding:3px 8px;border-radius:var(--radius-full);border:1px solid #bbf7d0"><span class="material-symbols-outlined" style="font-size:12px;font-variation-settings:\'FILL\' 1">verified</span>KYC</span>'
-        : '<span style="font-size:10px;font-weight:600;color:#d97706;background:#fef9ec;padding:3px 8px;border-radius:var(--radius-full);border:1px solid #fde68a">Pending</span>'
+        : u.kycStatus === 'rejected'
+          ? '<span style="font-size:10px;font-weight:600;color:#dc2626;background:#fef2f2;padding:3px 8px;border-radius:var(--radius-full);border:1px solid #fecaca">Rejected</span>'
+          : '<span style="font-size:10px;font-weight:600;color:#d97706;background:#fef9ec;padding:3px 8px;border-radius:var(--radius-full);border:1px solid #fde68a">Pending</span>'
       }
+      ${u.batteryId
+        ? `<button class="dm-user-action" data-action="remove-battery" data-id="${u.id}" data-battery="${u.batteryId}" data-name="${u.name}"
+            style="background:#fefce8;color:#a16207;border:1px solid #fde68a;border-radius:8px;padding:5px 10px;font-size:10px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:3px;transition:all 0.15s;font-family:inherit"
+            onmouseover="this.style.background='#a16207';this.style.color='white'" onmouseout="this.style.background='#fefce8';this.style.color='#a16207'">
+            <span class="material-symbols-outlined" style="font-size:13px">battery_alert</span> Remove Bat
+          </button>`
+        : `<button class="dm-user-action" data-action="allocate-battery" data-id="${u.id}" data-name="${u.name}"
+            style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:8px;padding:5px 10px;font-size:10px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:3px;transition:all 0.15s;font-family:inherit"
+            onmouseover="this.style.background='#16a34a';this.style.color='white'" onmouseout="this.style.background='#f0fdf4';this.style.color='#16a34a'">
+            <span class="material-symbols-outlined" style="font-size:13px">battery_charging_full</span> Allocate
+          </button>`
+      }
+      ${(u.kycStatus === 'verified' || u.kycStatus === 'rejected') ? `
+      <button class="dm-user-action" data-action="reset-kyc" data-id="${u.id}" data-name="${u.name}"
+        style="background:#fefce8;color:#a16207;border:1px solid #fde68a;border-radius:8px;padding:5px 10px;font-size:10px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:3px;transition:all 0.15s;font-family:inherit"
+        onmouseover="this.style.background='#a16207';this.style.color='white'" onmouseout="this.style.background='#fefce8';this.style.color='#a16207'">
+        <span class="material-symbols-outlined" style="font-size:13px">restart_alt</span> Reset KYC
+      </button>` : ''}
       <button class="dm-delete-btn" data-id="${u.id}" data-type="users" data-label="${u.name}"
         style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;border-radius:8px;padding:5px 10px;font-size:10px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:3px;transition:all 0.15s;font-family:inherit"
         onmouseover="this.style.background='#ef4444';this.style.color='white'" onmouseout="this.style.background='#fef2f2';this.style.color='#ef4444'">
-        <span class="material-symbols-outlined" style="font-size:13px">delete</span> Remove
+        <span class="material-symbols-outlined" style="font-size:13px">delete</span> Delete
       </button>
     </div>
   </div>`;
@@ -328,23 +403,6 @@ export async function renderSettings(container) {
         ${icon('bolt', '16px', 'vertical-align:middle;margin-right:6px;color:#9ca3af')}
         Electica Enterprise Dashboard © 2026
       </footer>
-    </div>
-
-    <!-- Delete Confirmation Modal -->
-    <div id="dm-confirm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;align-items:center;justify-content:center">
-      <div style="background:white;border-radius:16px;padding:2rem;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2);text-align:center">
-        <div style="width:56px;height:56px;background:#fef2f2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem">
-          <span class="material-symbols-outlined" style="font-size:28px;color:#ef4444">warning</span>
-        </div>
-        <h3 style="font-size:var(--font-lg);font-weight:700;color:#1e293b;margin-bottom:8px">Confirm Deletion</h3>
-        <p id="dm-confirm-text" style="font-size:var(--font-sm);color:#64748b;margin-bottom:1.5rem">Are you sure?</p>
-        <div style="display:flex;gap:10px;justify-content:center">
-          <button id="dm-confirm-cancel" style="padding:10px 24px;border-radius:var(--radius-md);border:1px solid #e2e8f0;background:white;color:#64748b;font-size:var(--font-sm);font-weight:600;cursor:pointer;font-family:inherit">Cancel</button>
-          <button id="dm-confirm-delete" style="padding:10px 24px;border-radius:var(--radius-md);border:none;background:#ef4444;color:white;font-size:var(--font-sm);font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px">
-            <span class="material-symbols-outlined" style="font-size:16px">delete</span> Delete
-          </button>
-        </div>
-      </div>
     </div>
 
     <!-- Repair Dropdown (fixed position, shared) -->
@@ -632,61 +690,128 @@ export async function renderSettings(container) {
         if (station) showNewStationModal(station);
     });
 
-    // ── Delete confirmation flow ──
-    const overlay = document.getElementById('dm-confirm-overlay');
-    const confirmText = document.getElementById('dm-confirm-text');
-    const confirmCancel = document.getElementById('dm-confirm-cancel');
-    const confirmDelete = document.getElementById('dm-confirm-delete');
-    let pendingDelete = null;
-
-    function showConfirm(type, id, label) {
-        confirmText.innerHTML = `This will permanently remove <strong>${label}</strong> (${id}) from the system. This action cannot be undone.`;
-        overlay.style.display = 'flex';
-        pendingDelete = { type, id };
-    }
-
-    function hideConfirm() {
-        overlay.style.display = 'none';
-        pendingDelete = null;
-    }
-
-    confirmCancel?.addEventListener('click', hideConfirm);
-    overlay?.addEventListener('click', e => { if (e.target === overlay) hideConfirm(); });
-
-    confirmDelete?.addEventListener('click', async () => {
-        if (!pendingDelete) return;
-        const { type, id } = pendingDelete;
-        confirmDelete.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;animation:spin 0.6s linear infinite">progress_activity</span> Deleting...';
-        confirmDelete.style.pointerEvents = 'none';
-        try {
-            const res = await apiFetch(`/${type}/${id}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('Failed');
-            const card = container.querySelector(`.dm-card[data-id="${id}"][data-type="${type}"]`);
-            if (card) {
-                card.style.transition = 'opacity 0.3s, transform 0.3s';
-                card.style.opacity = '0';
-                card.style.transform = 'scale(0.95) translateX(20px)';
-                setTimeout(() => card.remove(), 300);
-            }
-            const tab = container.querySelector(`.dm-tab[data-tab="${type}"]`);
-            if (tab) {
-                const badge = tab.querySelector('.dm-badge');
-                if (badge) badge.textContent = Math.max(0, (parseInt(badge.textContent) || 0) - 1);
-            }
-            const tl = type === 'stations' ? 'Station' : type === 'batteries' ? 'Battery' : 'User';
-            showToast(`${tl} ${id} removed successfully`, 'success');
-        } catch {
-            showToast(`Failed to delete ${id}. Please try again.`, 'error');
-        }
-        confirmDelete.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">delete</span> Delete';
-        confirmDelete.style.pointerEvents = 'auto';
-        hideConfirm();
-    });
-
+    // ── Delete confirmation flow (uses showAdminConfirm with type-to-confirm) ──
     container.addEventListener('click', e => {
         const btn = e.target.closest('.dm-delete-btn');
         if (!btn) return;
-        showConfirm(btn.dataset.type, btn.dataset.id, btn.dataset.label);
+        const type = btn.dataset.type;
+        const id = btn.dataset.id;
+        const label = btn.dataset.label;
+        const typeLabel = type === 'stations' ? 'Station' : type === 'batteries' ? 'Battery' : 'User';
+
+        showAdminConfirm({
+            title: `Delete ${typeLabel}`,
+            message: `This will permanently remove <strong>${label}</strong> (${id}) from the system. ${type === 'users' ? 'Their assigned battery will be returned to stock. Swap and transaction records will be preserved but unlinked. ' : ''}<strong>This cannot be undone.</strong>`,
+            confirmLabel: `Delete ${typeLabel}`,
+            confirmColor: '#dc2626',
+            requireTypedId: id,
+            onConfirm: async () => {
+                try {
+                    const endpoint = type === 'users' ? `/admin/users/${id}` : `/${type}/${id}`;
+                    const res = await apiFetch(endpoint, { method: 'DELETE' });
+                    if (!res.ok) {
+                        const data = await res.json().catch(() => ({}));
+                        throw new Error(data.error || 'Delete failed');
+                    }
+                    showToast(`${typeLabel} ${id} deleted successfully`, 'success');
+                    renderSettings(container);
+                } catch (err) {
+                    showToast(`Failed to delete ${id}: ${err.message}`, 'error');
+                }
+            },
+        });
+    });
+
+    // ── Admin User Actions (Remove Battery, Allocate, Reset KYC) ──
+    container.addEventListener('click', async e => {
+        const btn = e.target.closest('.dm-user-action');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const userId = btn.dataset.id;
+        const userName = btn.dataset.name;
+
+        if (action === 'remove-battery') {
+            const batteryId = btn.dataset.battery;
+            showAdminConfirm({
+                title: 'Remove Battery',
+                message: `Unassign <strong>${batteryId}</strong> from <strong>${userName}</strong> and return to stock inventory?`,
+                confirmLabel: 'Remove Battery',
+                confirmColor: '#a16207',
+                onConfirm: async () => {
+                    try {
+                        await apiFetch(`/batteries/${batteryId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: 'stock', assignedTo: null, stationId: null }),
+                        });
+                        await apiFetch(`/users/${userId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ batteryId: null }),
+                        });
+                        showToast(`${batteryId} removed from ${userName}`, 'success');
+                        renderSettings(container);
+                    } catch {
+                        showToast('Failed to remove battery', 'error');
+                    }
+                },
+            });
+        }
+
+        if (action === 'allocate-battery') {
+            showAdminConfirm({
+                title: 'Allocate Battery',
+                message: `Assign a stock battery to <strong>${userName}</strong>? The battery will be marked as deployed.`,
+                confirmLabel: 'Allocate',
+                confirmColor: '#16a34a',
+                onConfirm: async () => {
+                    try {
+                        const stockBats = await apiFetch('/batteries?status=stock').then(r => r.json());
+                        if (!stockBats.length) {
+                            showToast('No stock batteries available!', 'error');
+                            return;
+                        }
+                        const battery = stockBats[0];
+                        await apiFetch(`/users/${userId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ batteryId: battery.id }),
+                        });
+                        await apiFetch(`/batteries/${battery.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: 'deployed', assignedTo: userId, stationId: null }),
+                        });
+                        showToast(`${battery.id} allocated to ${userName}`, 'success');
+                        renderSettings(container);
+                    } catch {
+                        showToast('Failed to allocate battery', 'error');
+                    }
+                },
+            });
+        }
+
+        if (action === 'reset-kyc') {
+            showAdminConfirm({
+                title: 'Reset KYC Status',
+                message: `Reset <strong>${userName}</strong> back to pending KYC? Their current verification will be cleared.`,
+                confirmLabel: 'Reset to Pending',
+                confirmColor: '#a16207',
+                onConfirm: async () => {
+                    try {
+                        await apiFetch(`/users/${userId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ kycStatus: 'pending', rejectionReason: null }),
+                        });
+                        showToast(`${userName} reset to pending`, 'success');
+                        renderSettings(container);
+                    } catch {
+                        showToast('Failed to reset KYC status', 'error');
+                    }
+                },
+            });
+        }
     });
 }
 
