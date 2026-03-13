@@ -28,6 +28,7 @@ dist-ssr
 
 # Firebase service account - NEVER commit
 server/firebase-service-account.json
+*-firebase-adminsdk-*.json
 
 # Internal dev notes (kept locally, not on GitHub)
 DOCUMENTATION.md
