@@ -238,10 +238,10 @@ async function showApprovalSheet(container, user, userId, agent, onBack, onResub
 
   const ov = document.createElement('div');
   ov.id = 'approval-overlay';
-  ov.style.cssText = 'position:fixed;inset:0;z-index:999;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);display:flex;flex-direction:column;justify-content:flex-end';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:999;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:center';
 
   ov.innerHTML = `
-    <div style="background:#fff;border-radius:24px 24px 0 0;max-height:90dvh;overflow-y:auto">
+    <div style="background:#fff;border-radius:24px 24px 0 0;max-height:90dvh;overflow-y:auto;width:100%;max-width:480px">
       <div style="width:36px;height:4px;border-radius:2px;background:#e2e8f0;margin:12px auto 0"></div>
 
       <!-- Header -->
