@@ -48,5 +48,11 @@ export async function apiFetch(path, options = {}) {
     throw new Error('Session expired');
   }
 
+  // Throw on server errors for mutations so callers can catch failures
+  if (!res.ok && options.method && options.method !== 'GET') {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed (${res.status})`);
+  }
+
   return res;
 }

@@ -44,7 +44,7 @@ export async function renderCustomerDetail(container, userId, onBack, onResubmit
   }
 
   const kyc   = kycConfig[user.kycStatus] || kycConfig.pending;
-  const spent = swaps.reduce((s, x) => s + (x.amount || 0), 0);
+  const spent = swaps.reduce((s, x) => s + (Number(x.amount) || 0), 0);
   swaps.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
   container.innerHTML = `

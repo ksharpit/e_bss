@@ -64,6 +64,10 @@ CREATE TABLE IF NOT EXISTS users (
     pan             TEXT,
     onboarded_by    TEXT,                    -- agent ID
     onboarded_at    TIMESTAMPTZ,
+    deposit_proof   JSONB,                   -- {name, size, uploadedAt}
+    customer_photo  JSONB,                   -- {name, size, uploadedAt}
+    rejection_reason TEXT,
+    kyc_submitted_at TIMESTAMPTZ,
     last_swap       TIMESTAMPTZ,
     registered_at   TIMESTAMPTZ DEFAULT NOW()
 );
@@ -79,6 +83,7 @@ CREATE TABLE IF NOT EXISTS swaps (
     amount          NUMERIC(10,2) DEFAULT 65,
     transaction_id  TEXT,
     status          TEXT DEFAULT 'completed',
+    type            TEXT,                    -- swap, allocation, return
     timestamp       TIMESTAMPTZ DEFAULT NOW()
 );
 
