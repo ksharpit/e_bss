@@ -367,6 +367,13 @@ export async function renderSettings(container) {
 
         <!-- Stations Grid -->
         <div id="dm-panel-stations" class="dm-panel">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+            <button id="dm-station-refresh" title="Refresh stations"
+              style="width:36px;height:36px;border-radius:10px;border:1.5px solid #e2e8f0;background:#f8fafc;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0"
+              onmouseover="this.style.background='rgba(212,101,74,0.08)';this.style.borderColor='#D4654A'" onmouseout="this.style.background='#f8fafc';this.style.borderColor='#e2e8f0'">
+              <span class="material-symbols-outlined" style="font-size:18px;color:#D4654A">refresh</span>
+            </button>
+          </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem">
             ${stations.map(s => stationCard(s)).join('')}
           </div>
@@ -375,6 +382,19 @@ export async function renderSettings(container) {
 
         <!-- Batteries List -->
         <div id="dm-panel-batteries" class="dm-panel" style="display:none">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <div style="flex:1;position:relative">
+              <span class="material-symbols-outlined" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:18px;color:#94a3b8">search</span>
+              <input id="dm-bat-search" type="text" placeholder="Search batteries by ID, station, user..." autocomplete="off"
+                style="width:100%;padding:9px 14px 9px 38px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:var(--font-sm);color:#1e293b;background:#f8fafc;font-family:inherit;box-sizing:border-box;outline:none;transition:border 0.15s"
+                onfocus="this.style.borderColor='#D4654A'" onblur="this.style.borderColor='#e2e8f0'" />
+            </div>
+            <button id="dm-bat-refresh" title="Refresh batteries"
+              style="width:36px;height:36px;border-radius:10px;border:1.5px solid #e2e8f0;background:#f8fafc;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0"
+              onmouseover="this.style.background='rgba(212,101,74,0.08)';this.style.borderColor='#D4654A'" onmouseout="this.style.background='#f8fafc';this.style.borderColor='#e2e8f0'">
+              <span class="material-symbols-outlined" style="font-size:18px;color:#D4654A">refresh</span>
+            </button>
+          </div>
           <div id="dm-bat-filters" style="display:flex;gap:5px;margin-bottom:12px;background:var(--bg-table-head);border-radius:var(--radius-full);padding:3px;border:1px solid var(--border-light);width:fit-content">
             <button class="dm-bat-filter active" data-filter="all" style="padding:5px 14px;border-radius:var(--radius-full);font-size:var(--font-xs);font-weight:700;cursor:pointer;border:1.5px solid #D4654A;background:rgba(212,101,74,0.10);color:#D4654A;transition:all 0.15s;font-family:inherit">All <span style="opacity:0.6">(${batteries.length})</span></button>
             <button class="dm-bat-filter" data-filter="deployed" style="padding:5px 14px;border-radius:var(--radius-full);font-size:var(--font-xs);font-weight:700;cursor:pointer;border:1.5px solid transparent;background:rgba(212,101,74,0.06);color:#D4654A;transition:all 0.15s;font-family:inherit">Deployed <span style="opacity:0.6">(${batteries.filter(b=>b.status==='deployed').length})</span></button>
@@ -392,7 +412,20 @@ export async function renderSettings(container) {
 
         <!-- Users List -->
         <div id="dm-panel-users" class="dm-panel" style="display:none">
-          <div style="display:flex;flex-direction:column;gap:8px;max-height:500px;overflow-y:auto;padding-right:4px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <div style="flex:1;position:relative">
+              <span class="material-symbols-outlined" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:18px;color:#94a3b8">search</span>
+              <input id="dm-user-search" type="text" placeholder="Search users by name, phone, vehicle..." autocomplete="off"
+                style="width:100%;padding:9px 14px 9px 38px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:var(--font-sm);color:#1e293b;background:#f8fafc;font-family:inherit;box-sizing:border-box;outline:none;transition:border 0.15s"
+                onfocus="this.style.borderColor='#D4654A'" onblur="this.style.borderColor='#e2e8f0'" />
+            </div>
+            <button id="dm-user-refresh" title="Refresh users"
+              style="width:36px;height:36px;border-radius:10px;border:1.5px solid #e2e8f0;background:#f8fafc;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0"
+              onmouseover="this.style.background='rgba(212,101,74,0.08)';this.style.borderColor='#D4654A'" onmouseout="this.style.background='#f8fafc';this.style.borderColor='#e2e8f0'">
+              <span class="material-symbols-outlined" style="font-size:18px;color:#D4654A">refresh</span>
+            </button>
+          </div>
+          <div id="dm-user-list" style="display:flex;flex-direction:column;gap:8px;max-height:500px;overflow-y:auto;padding-right:4px">
             ${users.map(u => userListRow(u)).join('')}
           </div>
           ${users.length === 0 ? '<p style="text-align:center;padding:2rem;color:#94a3b8;font-size:var(--font-sm)">No users found</p>' : ''}
@@ -550,6 +583,112 @@ export async function renderSettings(container) {
         const empty = document.getElementById('dm-bat-empty');
         if (list) list.innerHTML = filtered.map(b => batteryListRow(b, userMap)).join('');
         if (empty) empty.style.display = filtered.length === 0 ? 'block' : 'none';
+    });
+
+    // ── Battery search ──
+    document.getElementById('dm-bat-search')?.addEventListener('input', e => {
+        const q = e.target.value.toLowerCase().trim();
+        const activeFilter = container.querySelector('.dm-bat-filter[style*="border-color: rgb(212, 101, 74)"]')
+                          || container.querySelector('.dm-bat-filter[style*="#D4654A"]');
+        const currentFilter = activeFilter?.dataset?.filter || 'all';
+        let filtered = [...batteries];
+        if (currentFilter !== 'all') {
+            if (currentFilter === 'fault') filtered = filtered.filter(b => b.status === 'fault' || b.status === 'retired');
+            else filtered = filtered.filter(b => b.status === currentFilter);
+        }
+        if (q) {
+            filtered = filtered.filter(b => {
+                const user = b.assignedTo ? userMap[b.assignedTo] : null;
+                return (b.id || '').toLowerCase().includes(q)
+                    || (b.deviceId || '').toLowerCase().includes(q)
+                    || (b.stationName || '').toLowerCase().includes(q)
+                    || (b.stationId || '').toLowerCase().includes(q)
+                    || (user?.name || '').toLowerCase().includes(q)
+                    || (user?.phone || '').toLowerCase().includes(q)
+                    || (b.status || '').toLowerCase().includes(q);
+            });
+        }
+        const list = document.getElementById('dm-bat-list');
+        const empty = document.getElementById('dm-bat-empty');
+        if (list) list.innerHTML = filtered.map(b => batteryListRow(b, userMap)).join('');
+        if (empty) empty.style.display = filtered.length === 0 ? 'block' : 'none';
+    });
+
+    // ── User search ──
+    document.getElementById('dm-user-search')?.addEventListener('input', e => {
+        const q = e.target.value.toLowerCase().trim();
+        let filtered = [...users];
+        if (q) {
+            filtered = filtered.filter(u =>
+                (u.id || '').toLowerCase().includes(q)
+                || (u.name || '').toLowerCase().includes(q)
+                || (u.phone || '').toLowerCase().includes(q)
+                || (u.vehicle || '').toLowerCase().includes(q)
+                || (u.vehicleId || '').toLowerCase().includes(q)
+                || (u.kycStatus || '').toLowerCase().includes(q)
+                || (u.batteryId || '').toLowerCase().includes(q)
+            );
+        }
+        const list = document.getElementById('dm-user-list');
+        if (list) list.innerHTML = filtered.map(u => userListRow(u)).join('');
+    });
+
+    // ── Refresh buttons ──
+    document.getElementById('dm-station-refresh')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const icn = btn.querySelector('.material-symbols-outlined');
+        icn.style.animation = 'spin 0.6s linear infinite';
+        btn.style.pointerEvents = 'none';
+        try {
+            const fresh = await apiFetch('/stations').then(r => r.json());
+            stations.length = 0; stations.push(...fresh);
+            renderSettings(container);
+            showToast('Stations refreshed', 'success');
+        } catch { showToast('Failed to refresh', 'error'); }
+        icn.style.animation = '';
+        btn.style.pointerEvents = 'auto';
+    });
+
+    document.getElementById('dm-bat-refresh')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const icon = btn.querySelector('.material-symbols-outlined');
+        icon.style.animation = 'spin 0.6s linear infinite';
+        btn.style.pointerEvents = 'none';
+        try {
+            const [newBats, newUsers] = await Promise.all([
+                apiFetch('/batteries').then(r => r.json()),
+                apiFetch('/users').then(r => r.json()),
+            ]);
+            batteries.length = 0; batteries.push(...newBats);
+            users.length = 0; users.push(...newUsers);
+            Object.keys(userMap).forEach(k => delete userMap[k]);
+            users.forEach(u => { userMap[u.id] = u; });
+            document.getElementById('dm-bat-search').value = '';
+            const list = document.getElementById('dm-bat-list');
+            if (list) list.innerHTML = batteries.map(b => batteryListRow(b, userMap)).join('');
+            showToast('Batteries refreshed', 'success');
+        } catch { showToast('Failed to refresh', 'error'); }
+        icon.style.animation = '';
+        btn.style.pointerEvents = 'auto';
+    });
+
+    document.getElementById('dm-user-refresh')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const icon = btn.querySelector('.material-symbols-outlined');
+        icon.style.animation = 'spin 0.6s linear infinite';
+        btn.style.pointerEvents = 'none';
+        try {
+            const newUsers = await apiFetch('/users').then(r => r.json());
+            users.length = 0; users.push(...newUsers);
+            Object.keys(userMap).forEach(k => delete userMap[k]);
+            users.forEach(u => { userMap[u.id] = u; });
+            document.getElementById('dm-user-search').value = '';
+            const list = document.getElementById('dm-user-list');
+            if (list) list.innerHTML = users.map(u => userListRow(u)).join('');
+            showToast('Users refreshed', 'success');
+        } catch { showToast('Failed to refresh', 'error'); }
+        icon.style.animation = '';
+        btn.style.pointerEvents = 'auto';
     });
 
     // ── Repair button: show fixed dropdown near button ──
