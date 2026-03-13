@@ -105,34 +105,28 @@ function normalizePayload(data) {
   }
 
   // Legacy format (uppercase keys)
-  // Some devices send raw values needing scaling (SOC=6818 -> 68.18%), others send pre-scaled (SOC=100 -> 100%)
-  // Auto-detect: if value > 100, it needs scaling. If <= 100, it's already in the right range.
+  // MQTT team uses inconsistent casing: cells_v, Cells_V, Cells_v, Ntc_temp, Ntc_Temp, etc.
+  // Case-insensitive key lookup to handle all variants
+  const lowerKeys = {};
+  for (const k of Object.keys(data)) lowerKeys[k.toLowerCase()] = data[k];
+
   const t = data.Telemetry || {};
 
-  // Voltage: max pack voltage for 16-cell is ~67V
-  // Raw values: 44040 -> /1000 = 44.04V, 4798 -> /100 = 47.98V, pre-scaled: 48.66 -> 48.66V
+  // Auto-detect scaling: if value > threshold, it needs division
   const voltage = t.Volt != null
     ? (t.Volt > 10000 ? t.Volt / 1000 : t.Volt > 100 ? t.Volt / 100 : t.Volt)
     : null;
-  // Current: max realistic current is ~50A
-  // Raw values: 256 -> /100 = 2.56A, pre-scaled: 2.56 -> 2.56A
   const currentDraw = t.Curr != null
     ? (t.Curr > 10000 ? t.Curr / 1000 : t.Curr > 100 ? t.Curr / 100 : t.Curr)
     : null;
-  // SOC: raw values like 6818 need /100, pre-scaled values like 100 don't
   const soc = t.Soc != null ? (t.Soc > 100 ? t.Soc / 100 : t.Soc) : null;
-  // SOH: raw values like 25600 need /1000, pre-scaled values like 100 don't
   const soh = t.Soh != null ? (t.Soh > 100 ? t.Soh / 1000 : t.Soh) : null;
-  // Pod_temp: raw values like 8448 need /1000, pre-scaled values like 34 don't
   const podTemp = t.Pod_temp != null ? (t.Pod_temp > 200 ? t.Pod_temp / 1000 : t.Pod_temp) : null;
-  // Pdu_temp: raw values like [438,438] need /1000, pre-scaled like [35,35] don't
-  const pduTemps = data.Pdu_temp
-    ? data.Pdu_temp.map(v => v > 200 ? v / 1000 : v)
-    : null;
-  // Ntc_temp: same logic
-  const ntcTemps = data.Ntc_temp
-    ? data.Ntc_temp.map(v => v > 200 ? v / 1000 : v)
-    : null;
+
+  // Cell voltages and temp arrays - case-insensitive lookup
+  const cellsRaw = lowerKeys['cells_v'] || null;
+  const ntcRaw = lowerKeys['ntc_temp'] || null;
+  const pduRaw = lowerKeys['pdu_temp'] || null;
 
   return {
     voltage,
@@ -140,13 +134,12 @@ function normalizePayload(data) {
     soc,
     soh,
     cycleCount: t.Cycle != null ? Math.round(t.Cycle) : null,
-    // Capacity: realistic range is 0-100 Ah. Raw values like 1280 need /100
     capAvailable: t.Cap_avail != null ? (t.Cap_avail > 200 ? t.Cap_avail / 100 : t.Cap_avail) : null,
     capInitial: t.Cap_init != null ? (t.Cap_init > 200 ? t.Cap_init / 100 : t.Cap_init) : null,
     podTemp,
-    cellVoltages: data.cells_v || null,
-    ntcTemps,
-    pduTemps,
+    cellVoltages: cellsRaw,
+    ntcTemps: ntcRaw ? ntcRaw.map(v => v > 200 ? v / 1000 : v) : null,
+    pduTemps: pduRaw ? pduRaw.map(v => v > 200 ? v / 1000 : v) : null,
   };
 }
 
