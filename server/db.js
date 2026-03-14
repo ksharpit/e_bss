@@ -37,6 +37,10 @@ const COL_MAP = {
   depositTxnId: 'deposit_txn_id',
   onboardedBy: 'onboarded_by',
   onboardedAt: 'onboarded_at',
+  depositProof: 'deposit_proof',
+  customerPhoto: 'customer_photo',
+  rejectionReason: 'rejection_reason',
+  kycSubmittedAt: 'kyc_submitted_at',
   registeredAt: 'registered_at',
   // swaps
   userId: 'user_id',
