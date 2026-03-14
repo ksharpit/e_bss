@@ -289,6 +289,40 @@ app.get('/telemetry/:batteryId/latest', authMiddleware, async (req, res) => {
 });
 
 // ---------------------
+// Combined home endpoint (single round-trip for user app)
+// ---------------------
+app.get('/home/:userId', authMiddleware, async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const [userRes, stationsRes, batteriesRes, swapsRes] = await Promise.all([
+      pool.query('SELECT * FROM users WHERE id = $1', [userId]),
+      pool.query('SELECT * FROM stations'),
+      pool.query('SELECT * FROM batteries'),
+      pool.query(
+        'SELECT * FROM swaps WHERE user_id = $1 ORDER BY timestamp DESC LIMIT 10',
+        [userId]
+      ),
+    ]);
+
+    const user = userRes.rows[0] ? rowToCamel(userRes.rows[0]) : null;
+    const stations = stationsRes.rows.map(rowToCamel);
+    const batteries = batteriesRes.rows.map(rowToCamel);
+    const swaps = swapsRes.rows.map(rowToCamel);
+
+    // Find user's assigned battery from the already-fetched list
+    let battery = null;
+    if (user?.batteryId) {
+      battery = batteries.find(b => b.id === user.batteryId) || null;
+    }
+
+    res.json({ user, battery, stations, batteries, swaps });
+  } catch (err) {
+    console.error('GET /home error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ---------------------
 // Generic CRUD routes
 // ---------------------
 const COLLECTIONS = ['stations', 'batteries', 'users', 'swaps', 'transactions', 'tickets', 'agents'];
